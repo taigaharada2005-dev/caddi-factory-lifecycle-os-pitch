@@ -1,0 +1,1878 @@
+<title>CaddiPlant — 工場プランコンシェルジュ Prototype</title>
+<style>
+  :root {
+    --ink: #14181c;
+    --paper: #eceef0;
+    --panel: #e3e6e8;
+    --panel-deep: #d5d9dc;
+    --steel: #55626c;
+    --steel-deep: #2c363d;
+    --line: rgba(20, 24, 28, 0.14);
+    --line-strong: rgba(20, 24, 28, 0.30);
+    --grid: rgba(20, 24, 28, 0.055);
+    --accent: #b05320;
+    --accent-deep: #833914;
+    --accent-soft: rgba(176, 83, 32, 0.12);
+    --clean: #2f6f8f;
+    --clean-soft: rgba(47, 111, 143, 0.14);
+    --good: #3a7160;
+    --bad: #b23b2e;
+
+    --font-display: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP", "Helvetica Neue", Arial, sans-serif;
+    --font-body: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Consolas", "Yu Gothic UI", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #eef0ee; --paper: #12161a; --panel: #1a2024; --panel-deep: #232b30;
+      --steel: #9aa7ae; --steel-deep: #c7d0d4;
+      --line: rgba(238,240,238,0.14); --line-strong: rgba(238,240,238,0.28);
+      --grid: rgba(238,240,238,0.05);
+      --accent: #dc8048; --accent-deep: #f0a06c; --accent-soft: rgba(220,128,72,0.16);
+      --clean: #6bb3d4; --clean-soft: rgba(107,179,212,0.16);
+      --good: #5fae95; --bad: #e0685a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #eef0ee; --paper: #12161a; --panel: #1a2024; --panel-deep: #232b30;
+    --steel: #9aa7ae; --steel-deep: #c7d0d4;
+    --line: rgba(238,240,238,0.14); --line-strong: rgba(238,240,238,0.28);
+    --grid: rgba(238,240,238,0.05);
+    --accent: #dc8048; --accent-deep: #f0a06c; --accent-soft: rgba(220,128,72,0.16);
+    --clean: #6bb3d4; --clean-soft: rgba(107,179,212,0.16);
+    --good: #5fae95; --bad: #e0685a;
+  }
+  :root[data-theme="light"] {
+    --ink: #14181c; --paper: #eceef0; --panel: #e3e6e8; --panel-deep: #d5d9dc;
+    --steel: #55626c; --steel-deep: #2c363d;
+    --line: rgba(20,24,28,0.14); --line-strong: rgba(20,24,28,0.30);
+    --grid: rgba(20,24,28,0.055);
+    --accent: #b05320; --accent-deep: #833914; --accent-soft: rgba(176,83,32,0.12);
+    --clean: #2f6f8f; --clean-soft: rgba(47,111,143,0.14);
+    --good: #3a7160; --bad: #b23b2e;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--font-body); line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: clamp(16px, 3vw, 34px); }
+
+  header.top {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    padding-bottom: 16px; border-bottom: 1px solid var(--line-strong);
+    margin-bottom: clamp(18px, 3vw, 28px);
+  }
+  .brand { display: flex; flex-direction: column; gap: 6px; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: var(--font-display); font-weight: 700; margin: 0;
+    font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.015em;
+  }
+  h1 .sub {
+    font-family: var(--font-mono); font-weight: 400; font-size: 0.5em;
+    color: var(--steel); letter-spacing: 0.02em; margin-left: 10px;
+  }
+  .tagline {
+    margin: 2px 0 0; font-size: 0.92rem; color: var(--steel-deep);
+    max-width: 34em; line-height: 1.5;
+  }
+  .ref {
+    font-size: 0.76rem; color: var(--steel); font-family: var(--font-mono);
+    text-align: right; max-width: 22em;
+  }
+
+  .layout {
+    display: grid; grid-template-columns: 340px 1fr; gap: clamp(16px, 2.4vw, 26px);
+    align-items: start;
+  }
+  @media (max-width: 940px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ---- control column ---- */
+  .controls { display: flex; flex-direction: column; gap: 20px; }
+  .field { display: flex; flex-direction: column; gap: 9px; }
+  .field > label.cap {
+    font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--steel); display: flex; gap: 8px; align-items: baseline;
+  }
+  .field .idx { color: var(--accent); }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .seg.three { grid-template-columns: 1fr 1fr 1fr; }
+  .seg button {
+    border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink);
+    border-radius: 5px; padding: 9px 8px; font-size: 0.82rem; text-align: center;
+    transition: background .15s, border-color .15s, color .15s;
+    display: flex; flex-direction: column; align-items: center; gap: 3px; line-height: 1.25;
+  }
+  .seg button .sub { font-size: 0.66rem; color: var(--steel); font-family: var(--font-mono); }
+  .seg button:hover { border-color: var(--accent); }
+  .seg button[aria-pressed="true"] {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  .seg button[aria-pressed="true"] .sub { color: rgba(255,255,255,0.85); }
+
+  .trigger-select {
+    width: 100%; border: 1px solid var(--line-strong); background: var(--panel);
+    color: var(--ink); border-radius: 5px; padding: 10px 12px; font-size: 0.85rem;
+    font-family: inherit;
+  }
+
+  .hint { font-size: 0.74rem; color: var(--steel); margin: 0; }
+
+  /* ---- stage column ---- */
+  .stage { display: flex; flex-direction: column; gap: 18px; }
+
+  .floorcard {
+    border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden;
+    background: var(--panel);
+  }
+  .floorcard .fhead {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel-deep);
+  }
+  .fhead .ttl { font-family: var(--font-display); font-weight: 700; font-size: 0.95rem; }
+  .fhead .tmpl {
+    font-family: var(--font-mono); font-size: 0.76rem; color: var(--accent);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .fhead .tmpl .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  .floor {
+    position: relative; padding: 22px 18px; min-height: 220px;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+  .flowrow {
+    display: flex; align-items: stretch; gap: 0; flex-wrap: wrap;
+    row-gap: 14px;
+  }
+  .zone {
+    position: relative; flex: 1 1 0; min-width: 84px;
+    border: 1.5px solid var(--steel-deep); border-radius: 6px;
+    background: var(--paper);
+    padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    text-align: center;
+    animation: pop .32s ease both;
+  }
+  .zone.clean { border-color: var(--clean); background: var(--clean-soft); }
+  .zone.draggable { cursor: grab; }
+  .zone.draggable:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.10); }
+  .zone.dragging { opacity: 0.45; cursor: grabbing; }
+  .zone.dragover { border-style: dashed; border-color: var(--accent); }
+  .zone.locked { opacity: 0.92; }
+  .zone .grip {
+    position: absolute; top: 5px; right: 6px; color: var(--steel);
+    font-size: 0.7rem; line-height: 1; letter-spacing: -1px;
+  }
+  .zone.locked .grip { display: none; }
+  .zone .zi {
+    font-family: var(--font-mono); font-size: 0.62rem; color: var(--steel);
+  }
+  .zone .zn { font-size: 0.82rem; font-weight: 600; line-height: 1.2; }
+  .zone .cleantag {
+    font-family: var(--font-mono); font-size: 0.58rem; color: var(--clean);
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .zone .locktag {
+    font-family: var(--font-mono); font-size: 0.58rem; color: var(--steel);
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .arrow {
+    align-self: center; flex: 0 0 22px; display: flex; align-items: center; justify-content: center;
+    color: var(--accent); transition: color .2s;
+  }
+  .arrow.back { color: var(--bad); }
+  .arrow svg { width: 20px; height: 12px; transition: transform .2s; }
+  .arrow.back svg { transform: scaleX(-1); }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
+
+  .floornote {
+    padding: 10px 16px; border-top: 1px solid var(--line);
+    font-size: 0.78rem; color: var(--steel); display: flex; align-items: center; gap: 8px;
+    background: var(--panel-deep);
+  }
+  .floornote .k { font-family: var(--font-mono); color: var(--accent); }
+
+  .fhead .hint3d { font-family: var(--font-mono); font-size: 0.72rem; color: var(--steel); }
+  .stage3d {
+    width: 100%; height: 340px; position: relative;
+    background: linear-gradient(180deg, var(--panel-deep), var(--panel));
+    cursor: grab; touch-action: none;
+  }
+  .stage3d:active { cursor: grabbing; }
+  .stage3d canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  /* ---- blueprint (俯瞰図面) ---- */
+  .bpwrap { overflow-x: auto; padding: 14px 16px; background: var(--panel); }
+  .bp-svg { width: 100%; min-width: 660px; height: auto; display: block; font-family: var(--font-body); }
+  .bp-border { fill: none; stroke: var(--line-strong); }
+  .bp-grid line { stroke: var(--grid); stroke-width: 1; }
+  .bp-wall { fill: none; stroke: var(--ink); stroke-width: 5; }
+  .bp-floor { fill: var(--paper); stroke: none; }
+  .bp-room { fill: var(--panel-deep); stroke: var(--steel); stroke-width: 1.4; }
+  .bp-room.clean { fill: var(--clean-soft); stroke: var(--clean); }
+  .bp-code { fill: var(--steel); font-family: var(--font-mono); font-size: 11px; }
+  .bp-label { fill: var(--ink); font-size: 15px; font-weight: 600; dominant-baseline: middle; }
+  .bp-clean { fill: var(--clean); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em; }
+  .bp-flow { stroke: var(--accent); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .bp-door { fill: var(--accent); }
+  .bp-doorlbl { fill: var(--accent); font-family: var(--font-mono); font-size: 11px; }
+  .bp-dim line { stroke: var(--steel); stroke-width: 1; }
+  .bp-dimtext { fill: var(--steel); font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .bp-north line, .bp-north polyline { stroke: var(--ink); stroke-width: 1.4; fill: none; }
+  .bp-north text { fill: var(--ink); font-family: var(--font-mono); font-size: 12px; }
+  .bp-title-box { fill: var(--panel-deep); stroke: var(--ink); stroke-width: 1.4; }
+  .bp-title-line { stroke: var(--line-strong); stroke-width: 1; }
+  .bp-tk { fill: var(--steel); font-family: var(--font-mono); font-size: 11px; dominant-baseline: middle; }
+  .bp-tv { fill: var(--ink); font-size: 12px; dominant-baseline: middle; }
+  .bp-title-main { fill: var(--ink); font-size: 15px; font-weight: 700; }
+  .bp-site { fill: none; stroke: var(--steel); stroke-width: 1.4; stroke-dasharray: 9 5; }
+  .bp-open { fill: none; stroke: var(--steel); stroke-width: 1; stroke-dasharray: 5 4; }
+  .bp-yard { stroke: var(--steel); stroke-width: 1; }
+  .bp-aux { fill: var(--panel-deep); stroke: var(--ink); stroke-width: 1.2; }
+  .bp-aux-lbl { fill: var(--steel-deep); font-size: 11px; }
+  .bp-stall { stroke: var(--steel); stroke-width: 1; }
+  .bp-road { stroke: rgba(120,132,140,0.4); stroke-width: 8; }
+  .bp-legtitle { fill: var(--ink); font-size: 12px; font-weight: 700; }
+  .bp-legnum { fill: var(--accent); font-family: var(--font-mono); font-size: 11px; }
+  .bp-legtext { fill: var(--ink); font-size: 12px; }
+
+  /* ---- spec panel ---- */
+  .specwrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .spec {
+    border: 1px solid var(--line); border-radius: 7px; background: var(--panel);
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .spec .sk {
+    font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--steel);
+  }
+  .spec .sv {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 1.5rem; font-weight: 700; line-height: 1.1;
+  }
+  .spec .su { font-size: 0.72rem; color: var(--steel); }
+  .spec.match .sv { color: var(--accent); }
+  .spec.flow .sv { color: var(--good); }
+  .spec.flow.warn .sv { color: var(--bad); }
+
+  .meter { height: 7px; border-radius: 4px; background: var(--panel-deep); overflow: hidden; margin-top: 6px; }
+  .meter > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .5s cubic-bezier(.2,.7,.2,1); }
+  #flowBar { background: var(--good); }
+  .spec.flow.warn #flowBar { background: var(--bad); }
+
+  /* equipment + similars */
+  .detail-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 620px) { .detail-grid { grid-template-columns: 1fr; } }
+  .box { border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 14px 16px; }
+  .box h3 {
+    margin: 0 0 10px; font-size: 0.82rem; font-family: var(--font-display); font-weight: 700;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .box h3 .c { font-family: var(--font-mono); font-size: 0.68rem; color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    font-size: 0.76rem; padding: 5px 10px; border: 1px solid var(--line-strong);
+    border-radius: 100px; color: var(--steel-deep); background: var(--paper);
+  }
+  .simrow { display: flex; align-items: baseline; gap: 8px; }
+  .simrow .big {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 2rem; font-weight: 700; color: var(--good);
+  }
+  .simrow .lbl { font-size: 0.8rem; color: var(--steel-deep); }
+  .provenance {
+    margin-top: 10px; font-size: 0.74rem; color: var(--steel);
+    display: flex; gap: 7px; align-items: flex-start; line-height: 1.45;
+  }
+  .provenance .dotg { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-top: 6px; }
+
+  /* ---- AIヒアリング chat ---- */
+  .chatcard { border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--panel); display: flex; flex-direction: column; }
+  .chatcard .chead { padding: 10px 14px; background: var(--steel-deep); color: var(--paper); display: flex; flex-direction: column; gap: 2px; }
+  .chatcard .chead .t { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; }
+  .chatcard .chead .s { font-size: 0.66rem; color: rgba(255,255,255,0.72); font-family: var(--font-mono); }
+  .chatlog { padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; }
+  .msg { max-width: 90%; padding: 8px 11px; border-radius: 11px; line-height: 1.5; font-size: 0.83rem; }
+  .msg.ai { align-self: flex-start; background: var(--panel-deep); border: 1px solid var(--line); border-bottom-left-radius: 3px; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 3px; }
+  .msg .pick { display: block; margin-top: 5px; font-family: var(--font-mono); font-size: 0.68rem; color: var(--accent-deep); }
+  .chatsug { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; background: var(--panel); }
+  .chatsug button { border: 1px solid var(--line-strong); background: var(--paper); color: var(--steel-deep); border-radius: 100px; padding: 4px 10px; font-size: 0.71rem; cursor: pointer; }
+  .chatsug button:hover { border-color: var(--accent); color: var(--ink); }
+  .chatform { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--panel-deep); }
+  .chatform input { flex: 1; min-width: 0; border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 10px; font-size: 0.83rem; font-family: inherit; background: var(--paper); color: var(--ink); }
+  .chatform button { border: none; background: var(--accent); color: #fff; border-radius: 6px; padding: 0 14px; font-size: 0.82rem; cursor: pointer; }
+  .chatnote { font-size: 0.64rem; color: var(--steel); font-family: var(--font-mono); padding: 8px 12px; margin: 0; background: var(--panel-deep); border-top: 1px solid var(--line); }
+
+  .certs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .certs button { border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; cursor: pointer; }
+  .certs button:hover { border-color: var(--clean); }
+  .certs button[aria-pressed="true"] { background: var(--clean); border-color: var(--clean); color: #fff; }
+  .reqsum { border: 1px solid var(--line); border-radius: 6px; background: var(--panel-deep); padding: 10px 12px; font-size: 0.76rem; color: var(--steel-deep); line-height: 1.65; }
+  .reqsum b { color: var(--ink); font-weight: 600; }
+
+  /* ---- 立地・調達 最適化（SCM） ---- */
+  .scmbody { display: grid; grid-template-columns: 1.6fr 1fr; gap: 0; }
+  @media (max-width: 760px) { .scmbody { grid-template-columns: 1fr; } }
+  .scmmap { background: var(--panel); border-right: 1px solid var(--line); }
+  @media (max-width: 760px) { .scmmap { border-right: none; border-bottom: 1px solid var(--line); } }
+  .scmmap svg { display: block; width: 100%; height: auto; }
+  .scmside { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .scmrank { display: flex; flex-direction: column; gap: 8px; }
+  .rankrow { display: grid; grid-template-columns: 1.3em 1fr 3.6em; gap: 8px; align-items: center; font-size: 0.82rem; }
+  .rankrow .rk { font-family: var(--font-mono); color: var(--steel); }
+  .rankrow .nm { display: flex; flex-direction: column; gap: 3px; }
+  .rankrow.best .nm .t { font-weight: 700; }
+  .rankrow .nm .t { line-height: 1.2; }
+  .rankrow .bar { height: 5px; border-radius: 3px; background: var(--panel-deep); overflow: hidden; }
+  .rankrow .bar > i { display: block; height: 100%; background: var(--steel); border-radius: 3px; }
+  .rankrow.best .bar > i { background: var(--accent); }
+  .rankrow .sc { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--steel-deep); text-align: right; }
+  .scmwhy { font-size: 0.76rem; color: var(--steel-deep); line-height: 1.6; border-left: 3px solid var(--accent); padding-left: 10px; }
+  .scmwhy b { color: var(--ink); }
+  .vendors h4 { margin: 4px 0 6px; font-size: 0.78rem; font-family: var(--font-display); font-weight: 700; }
+  .vendors h4 .c { font-family: var(--font-mono); font-size: 0.66rem; color: var(--accent); margin-right: 6px; }
+  .vrow { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 0.8rem; align-items: baseline; }
+  .vrow .vm { color: var(--steel); font-family: var(--font-mono); font-size: 0.7rem; }
+  .vrow .vfit { font-family: var(--font-mono); font-size: 0.74rem; color: var(--good); font-variant-numeric: tabular-nums; }
+  .scm-sea { fill: rgba(120,162,196,0.20); }
+  .scm-land { fill: var(--panel-deep); stroke: var(--steel); stroke-width: 1; }
+  .scm-grid { stroke: rgba(120,162,196,0.28); stroke-width: 0.6; }
+  .scm-dot { fill: var(--steel-deep); }
+  .scm-best { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+  .scm-pulse { fill: var(--accent); }
+  .scm-lbl { fill: var(--ink); font-size: 11px; }
+  .scm-lbl.b { font-weight: 700; }
+  .scm-badgebox { fill: var(--accent); }
+  .scm-badge { fill: #fff; font-family: var(--font-mono); font-size: 9px; }
+  .scm-sup { fill: var(--good); }
+  .scm-port { fill: var(--clean); }
+  .scm-conn { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.55; }
+  .scm-legtext { fill: var(--steel); font-family: var(--font-mono); font-size: 10px; }
+  .scm-compass line, .scm-compass polyline { stroke: var(--ink); stroke-width: 1.2; fill: none; }
+  .scm-compass text { fill: var(--ink); font-family: var(--font-mono); font-size: 10px; }
+
+  footer.foot {
+    margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--steel);
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .disc { max-width: 46em; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <p class="eyebrow">CADDi Internship — Interactive Prototype</p>
+      <h1>CaddiPlant<span class="sub">工場プランコンシェルジュ</span></h1>
+      <p class="tagline">プラントエンジニアの属人的な設計・判断・調整を<strong>ソフトウェア化</strong>し、要件を入れるだけで最適な工場設計を即時に生成する。</p>
+    </div>
+    <p class="ref">参考：燈 × 大和ハウス「AIプランコンシェルジュ」<br>——2,000超の住宅プランから即時提案。その工場版。</p>
+  </header>
+
+  <div class="layout">
+
+    <!-- CONTROLS -->
+    <section class="controls" aria-label="生産要件の入力">
+
+      <div class="chatcard">
+        <div class="chead">
+          <span class="t">AIヒアリング</span>
+          <span class="s">要望を自然文で話すと要件に自動反映</span>
+        </div>
+        <div class="chatlog" id="chatLog"></div>
+        <div class="chatsug" id="chatSug"></div>
+        <form class="chatform" id="chatForm">
+          <input id="chatInput" autocomplete="off" placeholder="例：EV電池を月10万個、クリーンルームで海外に…" />
+          <button type="submit">送信</button>
+        </form>
+        <p class="chatnote">※ デモ用モック。実装時はサーバ経由でClaude API（claude-opus-4-8）が自然文→要件を抽出。</p>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">01</span> 何を作りますか</label>
+        <div class="seg" id="segProduct"></div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">02</span> 生産量</label>
+        <div class="seg three" id="segVolume">
+          <button data-v="low" aria-pressed="false">少量<span class="sub">low</span></button>
+          <button data-v="mid" aria-pressed="true">中量<span class="sub">mid</span></button>
+          <button data-v="high" aria-pressed="false">大量<span class="sub">high</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">03</span> 公差・精度</label>
+        <div class="seg three" id="segTol">
+          <button data-t="general" aria-pressed="true">一般<span class="sub">general</span></button>
+          <button data-t="precision" aria-pressed="false">精密<span class="sub">precision</span></button>
+          <button data-t="ultra-precision" aria-pressed="false">超精密<span class="sub">ultra</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">04</span> 新設のきっかけ</label>
+        <select class="trigger-select" id="trigger">
+          <option value="capacity">① 既存工場のキャパが限界</option>
+          <option value="process">② 工程がまったく違う新製品</option>
+          <option value="regulation">③ 品質・衛生・規制が厳しい</option>
+          <option value="location">④ 場所が事業に合わない</option>
+          <option value="nonstop">⑤ 既存ラインを止められない</option>
+          <option value="automation">⑥ 自動化前提で作り直したい</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">05</span> 立地</label>
+        <div class="seg" id="segLoc" style="grid-template-columns:1fr 1fr">
+          <button data-loc="domestic" aria-pressed="true">国内<span class="sub">Japan</span></button>
+          <button data-loc="sea" aria-pressed="false">東南アジア<span class="sub">SEA</span></button>
+          <button data-loc="india" aria-pressed="false">インド<span class="sub">India</span></button>
+          <button data-loc="na" aria-pressed="false">北米<span class="sub">N.America</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">06</span> 稼働形態</label>
+        <div class="seg three" id="segShift">
+          <button data-shift="2" aria-pressed="true">2交代<span class="sub">2-shift</span></button>
+          <button data-shift="3" aria-pressed="false">3交代<span class="sub">3-shift</span></button>
+          <button data-shift="auto" aria-pressed="false">24h無人<span class="sub">lights-out</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">07</span> 必要認証・基準</label>
+        <div class="certs" id="certChips">
+          <button data-cert="iso9001" aria-pressed="false">ISO 9001</button>
+          <button data-cert="iatf" aria-pressed="false">IATF 16949</button>
+          <button data-cert="gmp" aria-pressed="false">GMP</button>
+          <button data-cert="haccp" aria-pressed="false">HACCP</button>
+          <button data-cert="clean" aria-pressed="false">クリーンルーム</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">08</span> 建設予算</label>
+        <select class="trigger-select" id="budget">
+          <option value="s">〜30億円</option>
+          <option value="m">30〜100億円</option>
+          <option value="l">100〜500億円</option>
+          <option value="xl">500億円〜</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">要件サマリー</span></label>
+        <div class="reqsum" id="reqSum">—</div>
+        <p class="hint">要件を変えると、右のレイアウト・3D・図面・試算が即座に更新されます。中間工程はドラッグで入れ替え可能（逆流で動線効率が下がり矢印が赤に）。</p>
+      </div>
+    </section>
+
+    <!-- STAGE -->
+    <section class="stage" aria-label="AIの即時提案">
+      <div class="floorcard">
+        <div class="fhead">
+          <span class="ttl">AI提案レイアウト</span>
+          <span class="tmpl"><span class="dot"></span><span id="tmplId">FT-011</span> <span id="tmplName">—</span></span>
+        </div>
+        <div class="floor"><div class="flowrow" id="flow"></div></div>
+        <div class="floornote"><span class="k">特徴</span><span id="floorNote">—</span></div>
+      </div>
+
+      <div class="floorcard">
+        <div class="fhead">
+          <span class="ttl">3D 工場ビュー</span>
+          <span class="hint3d">ドラッグで回転／スクロールでズーム</span>
+        </div>
+        <div id="stage3d" class="stage3d"></div>
+      </div>
+
+      <div class="floorcard">
+        <div class="fhead">
+          <span class="ttl">設計図面（俯瞰図）</span>
+          <span class="hint3d">CaddiPlant 自動生成 ／ 業者にそのまま渡せる初期図面</span>
+        </div>
+        <div class="bpwrap"><div id="blueprint"></div></div>
+      </div>
+
+      <div class="specwrap">
+        <div class="spec match">
+          <span class="sk">要件適合度</span>
+          <span class="sv"><span id="matchVal">0</span>%</span>
+          <div class="meter"><i id="matchBar" style="width:0%"></i></div>
+        </div>
+        <div class="spec flow" id="flowSpec">
+          <span class="sk">動線効率</span>
+          <span class="sv"><span id="flowVal">100</span>%</span>
+          <div class="meter"><i id="flowBar" style="width:100%"></i></div>
+        </div>
+        <div class="spec"><span class="sk">建設投資</span><span class="sv">¥<span id="capex">0</span></span><span class="su">億円（目安）</span></div>
+        <div class="spec"><span class="sk">着工→稼働</span><span class="sv"><span id="months">0</span></span><span class="su">ヶ月</span></div>
+        <div class="spec"><span class="sk">製造コスト指数</span><span class="sv"><span id="cost">0</span></span><span class="su">業界標準=100</span></div>
+        <div class="spec"><span class="sk">満稼働まで</span><span class="sv"><span id="ramp">0</span></span><span class="su">ヶ月（ランプアップ）</span></div>
+      </div>
+
+      <div class="detail-grid">
+        <div class="box">
+          <h3><span class="c">EQ</span>主要設備</h3>
+          <div class="chips" id="equip"></div>
+        </div>
+        <div class="box">
+          <h3><span class="c">NET</span>ネットワーク実績</h3>
+          <div class="simrow"><span class="big" id="net">0</span><span class="lbl">社の類似工場データに<br>基づく提案</span></div>
+          <div class="provenance"><span class="dotg"></span><span>CADDiの受発注実績（図面×工程×コスト）から観測できる範囲で算出。歩留まりは含みません。</span></div>
+        </div>
+      </div>
+
+      <div class="floorcard">
+        <div class="fhead">
+          <span class="ttl">立地・調達 最適化（SCM）</span>
+          <span class="hint3d" id="scmRegionLbl">—</span>
+        </div>
+        <div class="scmbody">
+          <div class="scmmap" id="scmMap"></div>
+          <aside class="scmside">
+            <div class="scmrank" id="scmRank"></div>
+            <div class="scmwhy" id="scmWhy"></div>
+            <div class="vendors" id="vendors"></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="foot">
+    <span>CaddiPlant ／ 工場プランコンシェルジュ プロトタイプ v1 ・ 原田</span>
+    <span class="disc">※ 本モックのデータはデモ用のサンプルです。実データではありません。</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PRODUCTS = [
+    { key: "precision-machined", label: "精密切削部品", sub: "machining" },
+    { key: "ev-battery-cell",    label: "EV電池セル",   sub: "battery" },
+    { key: "electronic-assembly",label: "電子部品実装", sub: "SMT" },
+    { key: "food-aseptic",       label: "食品無菌充填", sub: "aseptic" },
+    { key: "sheet-metal",        label: "板金加工",     sub: "sheet metal" },
+    { key: "injection-molding",  label: "樹脂成形",     sub: "molding" }
+  ];
+
+  var TEMPLATES = [
+    { id:"FT-011", name:"精密切削部品 中量産ライン", productType:"precision-machined", volumeBand:"mid", toleranceClass:"ultra-precision",
+      processFlow:["受入","粗加工","精密切削","バリ取り","洗浄","三次元検査","出荷"],
+      cleanZones:[], keyEquipment:["5軸マシニングセンタ","CNC旋盤","自動洗浄機","三次元測定機"],
+      capexOku:19, buildMonths:12, unitCostIndex:94, rampUpMonths:4, networkFactories:38, note:"多品種中量産に強い" },
+    { id:"FT-024", name:"EV電池セル 大量生産ドライルーム", productType:"ev-battery-cell", volumeBand:"high", toleranceClass:"precision",
+      processFlow:["材料受入","混練","塗工","乾燥","プレス","巻回","注液","化成","検査"],
+      cleanZones:["塗工","乾燥","プレス","巻回","注液","化成"], keyEquipment:["電極塗工機","ロールプレス","巻回機","注液装置","化成設備"],
+      capexOku:620, buildMonths:26, unitCostIndex:91, rampUpMonths:9, networkFactories:14, note:"低露点管理を重視" },
+    { id:"FT-037", name:"電子機器組立 高効率SMTライン", productType:"electronic-assembly", volumeBand:"high", toleranceClass:"precision",
+      processFlow:["基板受入","印刷","部品実装","リフロー","外観検査","機能検査","梱包"],
+      cleanZones:["印刷","部品実装","リフロー","外観検査"], keyEquipment:["スクリーン印刷機","高速マウンタ","リフロー炉","AOI検査装置"],
+      capexOku:42, buildMonths:10, unitCostIndex:88, rampUpMonths:3, networkFactories:46, note:"実装替え時間を短縮" },
+    { id:"FT-052", name:"食品無菌充填 高衛生ライン", productType:"food-aseptic", volumeBand:"high", toleranceClass:"general",
+      processFlow:["原料受入","調合","殺菌","無菌充填","密封","金属検査","箱詰め","出荷"],
+      cleanZones:["殺菌","無菌充填","密封"], keyEquipment:["UHT殺菌機","無菌充填機","CIP/SIP設備","金属検出機"],
+      capexOku:95, buildMonths:18, unitCostIndex:97, rampUpMonths:6, networkFactories:21, note:"衛生区画の分離設計" },
+    { id:"FT-068", name:"板金筐体 少中量フレキシブルライン", productType:"sheet-metal", volumeBand:"low", toleranceClass:"general",
+      processFlow:["材料受入","レーザー切断","曲げ","溶接","表面処理","検査","出荷"],
+      cleanZones:[], keyEquipment:["ファイバーレーザー加工機","プレスブレーキ","溶接ロボット","粉体塗装設備"],
+      capexOku:13, buildMonths:8, unitCostIndex:90, rampUpMonths:2, networkFactories:63, note:"短納期試作に対応" },
+    { id:"FT-079", name:"樹脂射出成形 中大量産セル", productType:"injection-molding", volumeBand:"mid", toleranceClass:"precision",
+      processFlow:["材料乾燥","射出成形","取出し","ゲートカット","外観検査","組立","梱包"],
+      cleanZones:[], keyEquipment:["電動射出成形機","金型温調機","取出しロボット","画像検査装置"],
+      capexOku:28, buildMonths:9, unitCostIndex:86, rampUpMonths:3, networkFactories:57, note:"金型交換を自動化" }
+  ];
+
+  var ORDER = { low:0, mid:1, high:2 };
+  var TORDER = { "general":0, "precision":1, "ultra-precision":2 };
+
+  var state = { product: "precision-machined", volume: "mid", tol: "general", trigger: "capacity",
+                location: "domestic", shift: "2", budget: "m", certs: [] };
+  var view = { templateId: null, tmpl: null, order: [] }; // order = array of optimal-position indices, in displayed sequence
+
+  var LOC_LABEL = { domestic: "国内", sea: "東南アジア", india: "インド", na: "北米" };
+  var LOC_FACTOR = { domestic: 1.0, sea: 0.65, india: 0.6, na: 1.25 };
+  var SHIFT_LABEL = { "2": "2交代", "3": "3交代", auto: "24h無人" };
+  var SHIFT_FACTOR = { "2": 1.0, "3": 0.97, auto: 0.93 };
+  var CERT_LABEL = { iso9001: "ISO 9001", iatf: "IATF 16949", gmp: "GMP", haccp: "HACCP", clean: "クリーンルーム" };
+  var BUDGET_LABEL = { s: "〜30億", m: "30〜100億", l: "100〜500億", xl: "500億〜" };
+
+  // SCM立地評価（f: サプライヤー近接/物流港湾/人材/コスト/災害地政学耐性 各0-10）
+  var SCM_WEIGHTS = { sup: 0.26, log: 0.20, lab: 0.20, cost: 0.19, risk: 0.15 };
+  var SCM_FACTORLBL = { sup: "サプライヤー近接", log: "物流・港湾", lab: "人材確保", cost: "用地・電力コスト", risk: "災害・地政学耐性" };
+  var SITE_DATA = {
+    domestic: { region: "国内（日本）", sites: [
+      { nm: "北関東（茨城）", x: 64, y: 42, f: { sup: 9, log: 9, lab: 7, cost: 7, risk: 8 } },
+      { nm: "東北（宮城）",   x: 70, y: 26, f: { sup: 6, log: 6, lab: 8, cost: 9, risk: 6 } },
+      { nm: "中部（愛知）",   x: 48, y: 56, f: { sup: 9, log: 8, lab: 6, cost: 5, risk: 7 } },
+      { nm: "九州（熊本）",   x: 22, y: 70, f: { sup: 7, log: 6, lab: 8, cost: 8, risk: 5 } }
+    ]},
+    sea: { region: "東南アジア", sites: [
+      { nm: "タイ東部 EEC",   x: 42, y: 42, f: { sup: 8, log: 9, lab: 8, cost: 8, risk: 7 } },
+      { nm: "ベトナム北部",   x: 56, y: 26, f: { sup: 7, log: 7, lab: 9, cost: 9, risk: 6 } },
+      { nm: "西ジャワ",       x: 58, y: 72, f: { sup: 6, log: 7, lab: 8, cost: 8, risk: 5 } },
+      { nm: "ペナン",         x: 34, y: 54, f: { sup: 8, log: 8, lab: 7, cost: 7, risk: 8 } }
+    ]},
+    india: { region: "インド", sites: [
+      { nm: "チェンナイ",     x: 58, y: 72, f: { sup: 8, log: 8, lab: 8, cost: 8, risk: 7 } },
+      { nm: "プネー",         x: 40, y: 52, f: { sup: 9, log: 7, lab: 7, cost: 7, risk: 8 } },
+      { nm: "グジャラート",   x: 30, y: 36, f: { sup: 7, log: 8, lab: 6, cost: 9, risk: 7 } },
+      { nm: "ベンガルール",   x: 48, y: 68, f: { sup: 8, log: 6, lab: 9, cost: 6, risk: 8 } }
+    ]},
+    na: { region: "北米", sites: [
+      { nm: "メキシコ・バヒオ", x: 40, y: 74, f: { sup: 8, log: 8, lab: 9, cost: 9, risk: 6 } },
+      { nm: "テキサス",       x: 46, y: 58, f: { sup: 8, log: 8, lab: 7, cost: 7, risk: 7 } },
+      { nm: "オハイオ",       x: 64, y: 40, f: { sup: 9, log: 8, lab: 6, cost: 6, risk: 8 } },
+      { nm: "ジョージア",     x: 66, y: 56, f: { sup: 8, log: 7, lab: 7, cost: 7, risk: 7 } }
+    ]}
+  };
+
+  // ---- matching ----
+  function score(t) {
+    var s = 0;
+    if (t.productType === state.product) s += 52; // dominant
+    var dv = Math.abs(ORDER[t.volumeBand] - ORDER[state.volume]);
+    s += dv === 0 ? 22 : dv === 1 ? 11 : 0;
+    var dt = Math.abs(TORDER[t.toleranceClass] - TORDER[state.tol]);
+    s += dt === 0 ? 16 : dt === 1 ? 8 : 0;
+    // trigger relevance
+    var hasClean = t.cleanZones.length > 0;
+    var hasRobot = t.keyEquipment.join("").indexOf("ロボット") >= 0 || t.note.indexOf("無人") >= 0 || t.note.indexOf("自動") >= 0;
+    if (state.trigger === "regulation" && hasClean) s += 10;
+    else if (state.trigger === "automation" && hasRobot) s += 10;
+    else if (state.trigger === "capacity" && t.volumeBand === "high") s += 8;
+    else if (state.trigger === "process") s += 6;
+    else s += 4;
+    // 認証：クリーンルーム/GMP/HACCP を選ぶとクリーン系テンプレを優先
+    if (hasClean && (state.certs.indexOf("clean") >= 0 || state.certs.indexOf("gmp") >= 0 || state.certs.indexOf("haccp") >= 0)) s += 8;
+    return s;
+  }
+
+  function bestTemplate() {
+    var best = TEMPLATES[0], bs = -1;
+    for (var i = 0; i < TEMPLATES.length; i++) {
+      var sc = score(TEMPLATES[i]);
+      if (sc > bs) { bs = sc; best = TEMPLATES[i]; }
+    }
+    return { t: best, pct: Math.max(38, Math.min(99, Math.round(bs))) };
+  }
+
+  // ---- count-up ----
+  function animateNum(el, to, dur) {
+    if (!el) return;
+    var from = parseFloat(el.textContent.replace(/,/g,"")) || 0;
+    var start = null;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { el.textContent = fmt(to); return; }
+    function step(ts) {
+      if (start === null) start = ts;
+      var p = Math.min(1, (ts - start) / dur);
+      var e = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(Math.round(from + (to - from) * e));
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function fmt(n) { return n.toLocaleString("ja-JP"); }
+
+  // ---- render ----
+  function arrowSVG(back) {
+    return '<span class="arrow' + (back ? ' back' : '') + '"><svg viewBox="0 0 20 12" fill="none">'
+      + '<path d="M0 6h16M12 1l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  }
+
+  // 動線効率：表示順の中で「後工程が前工程より上流に戻る」隣接を逆流としてカウント
+  function flowScore(t, order) {
+    var n = order.length;
+    if (n < 2) return { pct: 100, back: [] };
+    var back = [];
+    for (var k = 0; k < n - 1; k++) if (order[k + 1] < order[k]) back.push(k);
+    var pct = Math.round(100 * (1 - back.length / (n - 1)));
+    return { pct: pct, back: back };
+  }
+
+  function renderFlow(t, order) {
+    var flow = document.getElementById("flow");
+    var fs = flowScore(t, order);
+    var last = order.length - 1;
+    var html = "";
+    for (var d = 0; d < order.length; d++) {
+      var oi = order[d];
+      var name = t.processFlow[oi];
+      var isClean = t.cleanZones.indexOf(name) >= 0;
+      var locked = (d === 0 || d === last);
+      html += '<div class="zone' + (isClean ? ' clean' : '') + (locked ? ' locked' : ' draggable')
+            + '" data-pos="' + d + '"' + (locked ? '' : ' draggable="true"') + ' style="animation-delay:' + (d*40) + 'ms">'
+            + (locked ? '' : '<span class="grip">⠿</span>')
+            + '<span class="zi">Z' + (d+1<10?'0':'') + (d+1) + '</span>'
+            + '<span class="zn">' + name + '</span>'
+            + (isClean ? '<span class="cleantag">clean</span>' : (locked ? '<span class="locktag">固定</span>' : ''))
+            + '</div>';
+      if (d < last) html += arrowSVG(fs.back.indexOf(d) >= 0);
+    }
+    flow.innerHTML = html;
+    wireDrag();
+
+    // 動線効率タイル
+    var spec = document.getElementById("flowSpec");
+    animateNum(document.getElementById("flowVal"), fs.pct, 450);
+    document.getElementById("flowBar").style.width = fs.pct + "%";
+    if (fs.pct < 100) spec.classList.add("warn"); else spec.classList.remove("warn");
+
+    // 3Dビューへブリッジ
+    if (window.CaddiPlant3D) window.CaddiPlant3D.render(t, order);
+    // 俯瞰図面を再生成
+    renderBlueprint(t, order);
+  }
+
+  // ---- 俯瞰設計図面（SVG自動生成） ----
+  function bpArrow(x1, y, x2) {
+    return '<line class="bp-flow" x1="' + x1 + '" y1="' + y + '" x2="' + x2 + '" y2="' + y + '"/>'
+      + '<polyline class="bp-flow" points="' + (x2 - 7) + ',' + (y - 4) + ' ' + x2 + ',' + y + ' ' + (x2 - 7) + ',' + (y + 4) + '"/>';
+  }
+  function renderBlueprint(t, order) {
+    var host = document.getElementById("blueprint");
+    if (!host) return;
+    var n = order.length;
+    var VW = 1060, VH = 540;
+    var RX = VW - 16 - 224;            // 右パネル開始X
+    var bayM = 8, depthM = 24, totalM = n * bayM, floorM = totalM * depthM, siteM = Math.round(floorM * 2.4);
+
+    var bx = 176, by = 172, bh = 196, wall = 8;
+    var bw = RX - bx - 150; if (bw > 560) bw = 560;
+    var innerX = bx + wall, innerY = by + wall, innerW = bw - wall * 2, innerH = bh - wall * 2;
+    var gap = 5, roomW = (innerW - gap * (n - 1)) / n, cy = innerY + innerH / 2;
+    var sTop = 56, sBot = VH - 26, sL = 34, yW = 74;
+
+    var s = [];
+    s.push('<svg viewBox="0 0 ' + VW + ' ' + VH + '" xmlns="http://www.w3.org/2000/svg" class="bp-svg" role="img" aria-label="工場配置図">');
+    s.push('<defs><pattern id="bphatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(120,132,140,0.5)" stroke-width="1"/></pattern></defs>');
+    s.push('<rect class="bp-border" x="10" y="10" width="' + (VW - 20) + '" height="' + (VH - 20) + '"/>');
+    s.push('<text class="bp-title-main" x="' + (RX / 2 + 10) + '" y="40" text-anchor="middle">' + t.name + '　新工場 配置図</text>');
+
+    // 敷地境界（不整形）
+    var poly = [[sL + 20, sTop + 16], [RX - 40, sTop], [RX - 8, 128], [RX - 16, sBot], [sL + 34, sBot]];
+    s.push('<polygon class="bp-site" points="' + poly.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '"/>');
+
+    // 資材ヤード
+    s.push('<rect class="bp-open" x="' + bx + '" y="' + (by - 68) + '" width="' + bw + '" height="50"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx + 8) + '" y="' + (by - 68 + 20) + '">資材ヤード</text>');
+
+    // トラックヤード（ハッチ）
+    var yH = bh - 36;
+    s.push('<rect class="bp-yard" x="' + (bx - yW - 12) + '" y="' + (by + 18) + '" width="' + yW + '" height="' + yH + '" fill="url(#bphatch)"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx - yW - 6) + '" y="' + (by + 34) + '">受入</text>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx - yW - 6) + '" y="' + (by + 47) + '" style="font-size:8px">TRUCK</text>');
+    s.push('<rect class="bp-yard" x="' + (bx + bw + 12) + '" y="' + (by + 18) + '" width="' + yW + '" height="' + yH + '" fill="url(#bphatch)"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx + bw + 18) + '" y="' + (by + 34) + '">出荷</text>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx + bw + 18) + '" y="' + (by + 47) + '" style="font-size:8px">TRUCK</text>');
+
+    // 主建屋
+    s.push('<rect class="bp-wall" x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '"/>');
+    s.push('<rect class="bp-floor" x="' + innerX + '" y="' + innerY + '" width="' + innerW + '" height="' + innerH + '"/>');
+    for (var i = 0; i < n; i++) {
+      var name = t.processFlow[order[i]];
+      var clean = t.cleanZones.indexOf(name) >= 0;
+      var rx = innerX + i * (roomW + gap), cx = rx + roomW / 2;
+      s.push('<rect class="bp-room' + (clean ? ' clean' : '') + '" x="' + rx + '" y="' + innerY + '" width="' + roomW + '" height="' + innerH + '"/>');
+      s.push('<text class="bp-code" x="' + (rx + 5) + '" y="' + (innerY + 14) + '">' + (i + 1) + '</text>');
+      s.push('<text class="bp-label" x="' + cx + '" y="' + cy + '" text-anchor="middle" style="font-size:12px">' + name + '</text>');
+      if (clean) s.push('<text class="bp-clean" x="' + cx + '" y="' + (cy + 15) + '" text-anchor="middle">CLEAN</text>');
+    }
+    for (var j = 0; j < n - 1; j++) {
+      var ax = innerX + j * (roomW + gap) + roomW, nx2 = innerX + (j + 1) * (roomW + gap);
+      s.push(bpArrow(ax + 1, cy - innerH * 0.32, nx2 - 1));
+    }
+    s.push('<rect class="bp-door" x="' + (bx - 3) + '" y="' + (cy - 18) + '" width="6" height="36"/>');
+    s.push('<rect class="bp-door" x="' + (bx + bw - 3) + '" y="' + (cy - 18) + '" width="6" height="36"/>');
+
+    // 事務所・駐車場・進入路
+    var oX = bx - yW - 12, oY = sBot - 66;
+    s.push('<rect class="bp-aux" x="' + oX + '" y="' + oY + '" width="104" height="50"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (oX + 52) + '" y="' + (oY + 30) + '" text-anchor="middle">事務所</text>');
+    var pX = oX + 124, pY = sBot - 58, pW = 176, pH = 40;
+    s.push('<rect x="' + pX + '" y="' + pY + '" width="' + pW + '" height="' + pH + '" style="fill:none;stroke:var(--steel);stroke-width:1"/>');
+    for (var kk = 1; kk < 9; kk++) s.push('<line class="bp-stall" x1="' + (pX + kk * pW / 9) + '" y1="' + pY + '" x2="' + (pX + kk * pW / 9) + '" y2="' + (pY + pH) + '"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (pX + 4) + '" y="' + (pY - 4) + '">駐車場</text>');
+    s.push('<line class="bp-road" x1="' + (sL + 34) + '" y1="' + (sBot - 2) + '" x2="' + (RX - 12) + '" y2="' + (sBot - 2) + '"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (pX + pW + 14) + '" y="' + (sBot - 10) + '">進入路</text>');
+
+    // 建屋幅 寸法
+    var ty = by - 8;
+    s.push('<g class="bp-dim"><line x1="' + bx + '" y1="' + ty + '" x2="' + (bx + bw) + '" y2="' + ty + '"/><line x1="' + bx + '" y1="' + (ty - 4) + '" x2="' + bx + '" y2="' + (ty + 4) + '"/><line x1="' + (bx + bw) + '" y1="' + (ty - 4) + '" x2="' + (bx + bw) + '" y2="' + (ty + 4) + '"/></g>');
+    s.push('<text class="bp-dimtext" x="' + (bx + bw / 2) + '" y="' + (ty - 5) + '" text-anchor="middle">' + totalM + ' m</text>');
+
+    // 方位記号
+    var nx = RX - 30, ny = sBot - 46;
+    s.push('<g class="bp-north"><line x1="' + nx + '" y1="' + (ny + 16) + '" x2="' + nx + '" y2="' + (ny - 12) + '"/><polyline points="' + (nx - 5) + ',' + (ny - 5) + ' ' + nx + ',' + (ny - 14) + ' ' + (nx + 5) + ',' + (ny - 5) + '"/><text x="' + nx + '" y="' + (ny + 30) + '" text-anchor="middle">N</text></g>');
+
+    // 右パネル：表題欄
+    var PX = RX + 16, PW = VW - 16 - PX, TY = 20, rowH = 22;
+    var rows = [
+      ['図番', t.id], ['名称', t.name], ['立地', LOC_LABEL[state.location]],
+      ['敷地面積', siteM.toLocaleString('ja-JP') + ' m²'],
+      ['建築面積', floorM.toLocaleString('ja-JP') + ' m²'],
+      ['延床面積', floorM.toLocaleString('ja-JP') + ' m²'],
+      ['縮尺', '1:300'], ['工期', t.buildMonths + ' ヶ月'], ['作図', 'CaddiPlant AI']
+    ];
+    var TH = rowH * rows.length, colX = PX + 76;
+    s.push('<rect class="bp-title-box" x="' + PX + '" y="' + TY + '" width="' + PW + '" height="' + TH + '"/>');
+    s.push('<line class="bp-title-line" x1="' + colX + '" y1="' + TY + '" x2="' + colX + '" y2="' + (TY + TH) + '"/>');
+    for (var r = 0; r < rows.length; r++) {
+      var yy = TY + rowH * r;
+      if (r > 0) s.push('<line class="bp-title-line" x1="' + PX + '" y1="' + yy + '" x2="' + (PX + PW) + '" y2="' + yy + '"/>');
+      s.push('<text class="bp-tk" x="' + (PX + 8) + '" y="' + (yy + rowH / 2) + '">' + rows[r][0] + '</text>');
+      s.push('<text class="bp-tv" x="' + (colX + 8) + '" y="' + (yy + rowH / 2) + '" style="font-size:11px">' + rows[r][1] + '</text>');
+    }
+
+    // 右パネル：凡例
+    var LY = TY + TH + 22;
+    s.push('<text class="bp-legtitle" x="' + PX + '" y="' + LY + '">凡例（工程）</text>');
+    var ly = LY + 17;
+    for (var m = 0; m < n; m++) {
+      s.push('<text class="bp-legnum" x="' + PX + '" y="' + ly + '">' + (m + 1) + '.</text>');
+      s.push('<text class="bp-legtext" x="' + (PX + 22) + '" y="' + ly + '">' + t.processFlow[order[m]] + '</text>');
+      ly += 15;
+    }
+
+    s.push('</svg>');
+    host.innerHTML = s.join('');
+  }
+
+  // ---- 立地・調達 最適化（SCM） ----
+  function renderScm() {
+    var host = document.getElementById("scmMap"); if (!host) return;
+    var data = SITE_DATA[state.location] || SITE_DATA.domestic;
+    var lbl = document.getElementById("scmRegionLbl"); if (lbl) lbl.textContent = data.region + " ／ SCM最適立地";
+    var scored = data.sites.map(function (s) {
+      var tot = 0; for (var k in SCM_WEIGHTS) tot += s.f[k] * SCM_WEIGHTS[k];
+      return { nm: s.nm, x: s.x, y: s.y, f: s.f, total: tot };
+    }).sort(function (a, b) { return b.total - a.total; });
+    var best = scored[0];
+    var W = 460, H = 300;
+    function mx(x) { return 40 + x / 100 * 380; }
+    function my(y) { return 24 + y / 100 * 250; }
+    var g = [];
+    g.push('<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" class="bp-svg" role="img" aria-label="SCM最適立地マップ">');
+    g.push('<rect class="scm-sea" x="0" y="0" width="' + W + '" height="' + H + '"/>');
+    g.push('<g class="scm-grid">');
+    for (var gx = 0; gx <= W; gx += 40) g.push('<line x1="' + gx + '" y1="0" x2="' + gx + '" y2="' + H + '"/>');
+    for (var gy = 0; gy <= H; gy += 40) g.push('<line x1="0" y1="' + gy + '" x2="' + W + '" y2="' + gy + '"/>');
+    g.push('</g>');
+    g.push('<polygon class="scm-land" points="55,72 150,44 250,52 350,66 420,112 405,206 320,256 200,262 110,240 60,158"/>');
+    var bx = mx(best.x), by = my(best.y);
+    var portX = 74, portY = H - 42;
+    g.push('<line class="scm-conn" x1="' + bx + '" y1="' + by + '" x2="' + portX + '" y2="' + portY + '"/>');
+    g.push('<rect class="scm-port" x="' + (portX - 5) + '" y="' + (portY - 5) + '" width="10" height="10"/>');
+    var off = [[36, -22], [-30, 26], [42, 30]];
+    for (var si = 0; si < off.length; si++) {
+      var sxp = Math.max(20, Math.min(W - 20, bx + off[si][0])), syp = Math.max(20, Math.min(H - 20, by + off[si][1]));
+      g.push('<line class="scm-conn" x1="' + bx + '" y1="' + by + '" x2="' + sxp + '" y2="' + syp + '"/>');
+      g.push('<circle class="scm-sup" cx="' + sxp + '" cy="' + syp + '" r="3.5"/>');
+    }
+    for (var i = 0; i < scored.length; i++) {
+      var c = scored[i], cxp = mx(c.x), cyp = my(c.y), isBest = (c === best);
+      if (isBest) {
+        g.push('<circle class="scm-pulse" cx="' + cxp + '" cy="' + cyp + '" r="10"><animate attributeName="r" values="10;22;10" dur="2.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.5;0;0.5" dur="2.6s" repeatCount="indefinite"/></circle>');
+        g.push('<circle class="scm-best" cx="' + cxp + '" cy="' + cyp + '" r="8"/>');
+        g.push('<rect class="scm-badgebox" x="' + (cxp + 11) + '" y="' + (cyp - 23) + '" width="34" height="15" rx="3"/>');
+        g.push('<text class="scm-badge" x="' + (cxp + 28) + '" y="' + (cyp - 12) + '" text-anchor="middle">最適</text>');
+        g.push('<text class="scm-lbl b" x="' + (cxp + 11) + '" y="' + (cyp + 4) + '">' + c.nm + '</text>');
+      } else {
+        g.push('<circle class="scm-dot" cx="' + cxp + '" cy="' + cyp + '" r="' + (3 + c.total * 0.35) + '"/>');
+        g.push('<text class="scm-lbl" x="' + (cxp + 8) + '" y="' + (cyp + 4) + '">' + c.nm + '</text>');
+      }
+    }
+    g.push('<circle class="scm-best" cx="24" cy="' + (H - 46) + '" r="5"/><text class="scm-legtext" x="34" y="' + (H - 42) + '">最適地</text>');
+    g.push('<circle class="scm-sup" cx="24" cy="' + (H - 30) + '" r="4"/><text class="scm-legtext" x="34" y="' + (H - 26) + '">サプライヤー</text>');
+    g.push('<rect class="scm-port" x="20" y="' + (H - 18) + '" width="8" height="8"/><text class="scm-legtext" x="34" y="' + (H - 11) + '">港湾ハブ</text>');
+    g.push('<g class="scm-compass" transform="translate(' + (W - 26) + ',30)"><line x1="0" y1="12" x2="0" y2="-10"/><polyline points="-4,-4 0,-12 4,-4"/><text x="0" y="24" text-anchor="middle">N</text></g>');
+    g.push('</svg>');
+    host.innerHTML = g.join('');
+
+    var rl = [];
+    for (var r = 0; r < scored.length; r++) {
+      var c2 = scored[r], pct = Math.round(c2.total * 10);
+      rl.push('<div class="rankrow' + (c2 === best ? ' best' : '') + '"><span class="rk">' + (r + 1) + '</span>'
+        + '<span class="nm"><span class="t">' + c2.nm + '</span><span class="bar"><i style="width:' + pct + '%"></i></span></span>'
+        + '<span class="sc">' + pct + '</span></div>');
+    }
+    document.getElementById("scmRank").innerHTML = rl.join('');
+
+    var topf = Object.keys(best.f).sort(function (a, b) { return best.f[b] - best.f[a]; }).slice(0, 3);
+    var whyparts = topf.map(function (k) { return SCM_FACTORLBL[k] + '（' + best.f[k] + '/10）'; });
+    document.getElementById("scmWhy").innerHTML = '<b>' + best.nm + '</b> をSCM最適地として推奨。強み：' + whyparts.join('・') + '。CADDiネットワーク上の近接サプライヤーと港湾ハブへのアクセスを加味。';
+  }
+
+  function renderVendors() {
+    var host = document.getElementById("vendors"); if (!host) return;
+    var t = view.tmpl; if (!t) return;
+    var locF = LOC_FACTOR[state.location] || 1;
+    var cap = Math.round(t.capexOku * locF), lo = Math.round(cap * 0.45), hi = Math.round(cap * 0.62);
+    var jobsA = 20 + (t.networkFactories % 30), jobsB = 12 + (t.id.charCodeAt(3) % 20);
+    var h = [];
+    h.push('<h4><span class="c">EPC</span>建設・EPC パートナー候補</h4>');
+    h.push('<div class="vrow"><span><b>総合建設・EPC A社</b><br><span class="vm">プラント建設 実績' + jobsA + '件 ／ 納期 ' + t.buildMonths + 'ヶ月</span></span><span class="vfit">適合 94%<br>¥' + lo + '〜' + hi + '億</span></div>');
+    h.push('<div class="vrow"><span><b>プラントEPC B社</b><br><span class="vm">同業種 実績' + jobsB + '件 ／ 納期 ' + (t.buildMonths + 2) + 'ヶ月</span></span><span class="vfit">適合 88%<br>¥' + Math.round(lo * 1.05) + '〜' + Math.round(hi * 1.08) + '億</span></div>');
+    h.push('<h4 style="margin-top:12px"><span class="c">EQ</span>主要設備メーカー候補</h4>');
+    var eq = t.keyEquipment.slice(0, 4);
+    for (var i = 0; i < eq.length; i++) {
+      var fit = 96 - i * 4 - (eq[i].length % 3), mo = 4 + (i % 3);
+      h.push('<div class="vrow"><span><b>' + eq[i] + '</b><br><span class="vm">設備メーカー' + String.fromCharCode(88 + i) + ' ／ 納期 ' + mo + 'ヶ月</span></span><span class="vfit">適合 ' + fit + '%</span></div>');
+    }
+    host.innerHTML = h.join('');
+  }
+
+  // ---- drag reorder (中間工程のみ) ----
+  var dragFrom = null;
+  function wireDrag() {
+    var zones = document.querySelectorAll("#flow .zone.draggable");
+    for (var i = 0; i < zones.length; i++) {
+      var z = zones[i];
+      z.addEventListener("dragstart", onDragStart);
+      z.addEventListener("dragend", onDragEnd);
+      z.addEventListener("dragover", onDragOver);
+      z.addEventListener("dragleave", onDragLeave);
+      z.addEventListener("drop", onDrop);
+    }
+  }
+  function onDragStart(e) {
+    dragFrom = parseInt(this.getAttribute("data-pos"), 10);
+    this.classList.add("dragging");
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", String(dragFrom)); } catch (x) {} }
+  }
+  function onDragEnd() { this.classList.remove("dragging"); }
+  function onDragOver(e) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "move"; this.classList.add("dragover"); }
+  function onDragLeave() { this.classList.remove("dragover"); }
+  function onDrop(e) {
+    e.preventDefault();
+    this.classList.remove("dragover");
+    var to = parseInt(this.getAttribute("data-pos"), 10);
+    if (dragFrom === null || to === dragFrom) return;
+    var last = view.order.length - 1;
+    if (dragFrom === 0 || dragFrom === last || to === 0 || to === last) return; // 端は固定
+    var moved = view.order.splice(dragFrom, 1)[0];
+    view.order.splice(to, 0, moved);
+    dragFrom = null;
+    renderFlow(view.tmpl, view.order);
+  }
+
+  function renderChips(t) {
+    var box = document.getElementById("equip");
+    var html = "";
+    for (var i = 0; i < t.keyEquipment.length; i++) html += '<span class="chip">' + t.keyEquipment[i] + '</span>';
+    box.innerHTML = html;
+  }
+
+  function update() {
+    var r = bestTemplate();
+    var t = r.t;
+    // テンプレートが変わったら動線を最適順にリセット
+    if (view.templateId !== t.id) {
+      view.templateId = t.id;
+      view.tmpl = t;
+      view.order = [];
+      for (var i = 0; i < t.processFlow.length; i++) view.order.push(i);
+    }
+    document.getElementById("tmplId").textContent = t.id;
+    document.getElementById("tmplName").textContent = t.name;
+    document.getElementById("floorNote").textContent = t.note;
+    renderFlow(t, view.order);
+    renderChips(t);
+
+    // 立地・稼働形態で試算を補正
+    var locF = LOC_FACTOR[state.location] || 1;
+    var shiftF = SHIFT_FACTOR[state.shift] || 1;
+    animateNum(document.getElementById("capex"), Math.round(t.capexOku * locF), 650);
+    animateNum(document.getElementById("months"), t.buildMonths, 650);
+    animateNum(document.getElementById("cost"), Math.round(t.unitCostIndex * shiftF), 650);
+    animateNum(document.getElementById("ramp"), t.rampUpMonths, 650);
+    animateNum(document.getElementById("net"), t.networkFactories, 700);
+    animateNum(document.getElementById("matchVal"), r.pct, 700);
+    document.getElementById("matchBar").style.width = r.pct + "%";
+    updateReqSum();
+    renderScm();
+    renderVendors();
+  }
+
+  function updateReqSum() {
+    var prodLabel = "";
+    for (var i = 0; i < PRODUCTS.length; i++) if (PRODUCTS[i].key === state.product) prodLabel = PRODUCTS[i].label;
+    var vol = { low: "少量", mid: "中量", high: "大量" }[state.volume];
+    var tol = { "general": "一般", "precision": "精密", "ultra-precision": "超精密" }[state.tol];
+    var certs = state.certs.length ? state.certs.map(function (c) { return CERT_LABEL[c]; }).join("・") : "—";
+    var el = document.getElementById("reqSum");
+    if (el) el.innerHTML = '<b>' + prodLabel + '</b>／' + vol + '／' + tol + '公差　｜　立地：<b>' + LOC_LABEL[state.location]
+      + '</b>／' + SHIFT_LABEL[state.shift] + '／予算 ' + BUDGET_LABEL[state.budget] + '円<br>認証：' + certs;
+  }
+
+  // ---- build product segments ----
+  (function buildProducts() {
+    var seg = document.getElementById("segProduct");
+    var html = "";
+    for (var i = 0; i < PRODUCTS.length; i++) {
+      var p = PRODUCTS[i];
+      html += '<button data-p="' + p.key + '" aria-pressed="' + (p.key === state.product) + '">'
+            + p.label + '<span class="sub">' + p.sub + '</span></button>';
+    }
+    seg.innerHTML = html;
+  })();
+
+  // ---- wire segmented controls ----
+  function wireSeg(id, attr, key) {
+    var seg = document.getElementById(id);
+    seg.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      state[key] = b.getAttribute(attr);
+      var btns = seg.querySelectorAll("button");
+      for (var i = 0; i < btns.length; i++) btns[i].setAttribute("aria-pressed", btns[i] === b);
+      update();
+    });
+  }
+  wireSeg("segProduct", "data-p", "product");
+  wireSeg("segVolume", "data-v", "volume");
+  wireSeg("segTol", "data-t", "tol");
+  wireSeg("segLoc", "data-loc", "location");
+  wireSeg("segShift", "data-shift", "shift");
+  document.getElementById("trigger").addEventListener("change", function (e) {
+    state.trigger = e.target.value; update();
+  });
+  document.getElementById("budget").addEventListener("change", function (e) {
+    state.budget = e.target.value; update();
+  });
+  // 必要認証（複数選択トグル）
+  document.getElementById("certChips").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    var c = b.getAttribute("data-cert");
+    var idx = state.certs.indexOf(c);
+    if (idx >= 0) state.certs.splice(idx, 1); else state.certs.push(c);
+    b.setAttribute("aria-pressed", idx < 0);
+    update();
+  });
+
+  // ---- コントロールを state に同期（チャット反映用） ----
+  function pressOne(id, attr, val) {
+    var seg = document.getElementById(id);
+    if (!seg) return;
+    var btns = seg.querySelectorAll("button");
+    for (var i = 0; i < btns.length; i++) btns[i].setAttribute("aria-pressed", btns[i].getAttribute(attr) === val);
+  }
+  function syncControls() {
+    pressOne("segProduct", "data-p", state.product);
+    pressOne("segVolume", "data-v", state.volume);
+    pressOne("segTol", "data-t", state.tol);
+    pressOne("segLoc", "data-loc", state.location);
+    pressOne("segShift", "data-shift", state.shift);
+    document.getElementById("trigger").value = state.trigger;
+    document.getElementById("budget").value = state.budget;
+    var cb = document.querySelectorAll("#certChips button");
+    for (var j = 0; j < cb.length; j++) cb[j].setAttribute("aria-pressed", state.certs.indexOf(cb[j].getAttribute("data-cert")) >= 0);
+  }
+
+  // ---- AIヒアリング（自然文→要件 抽出：デモ用モック） ----
+  function parseNL(text) {
+    var q = text.toLowerCase(), picks = [];
+    function has() { for (var i = 0; i < arguments.length; i++) if (text.indexOf(arguments[i]) >= 0 || q.indexOf(arguments[i]) >= 0) return true; return false; }
+    // 製品
+    var prod = null;
+    if (has("電池", "バッテリ", "ev", "セル")) prod = "ev-battery-cell";
+    else if (has("実装", "基板", "電子", "smt", "半導体")) prod = "electronic-assembly";
+    else if (has("食品", "飲料", "無菌", "充填")) prod = "food-aseptic";
+    else if (has("板金", "筐体", "レーザ", "溶接")) prod = "sheet-metal";
+    else if (has("樹脂", "成形", "プラスチック", "射出")) prod = "injection-molding";
+    else if (has("切削", "金属", "精密部品", "加工")) prod = "precision-machined";
+    if (prod) { state.product = prod; picks.push("製品"); }
+    // 生産量
+    if (has("大量", "量産", "10万", "100万", "高産")) { state.volume = "high"; picks.push("生産量"); }
+    else if (has("少量", "試作", "多品種")) { state.volume = "low"; picks.push("生産量"); }
+    else if (has("中量", "5万")) { state.volume = "mid"; picks.push("生産量"); }
+    // 公差
+    if (has("超精密", "ミクロン", "μm", "ナノ")) { state.tol = "ultra-precision"; picks.push("公差"); }
+    else if (has("精密", "高精度")) { state.tol = "precision"; picks.push("公差"); }
+    // きっかけ
+    if (has("キャパ", "手狭", "限界", "足りな")) { state.trigger = "capacity"; picks.push("きっかけ"); }
+    else if (has("新製品", "新しい製品")) { state.trigger = "process"; picks.push("きっかけ"); }
+    else if (has("規制", "衛生", "gmp", "haccp")) { state.trigger = "regulation"; picks.push("きっかけ"); }
+    else if (has("止め", "止まら", "供給責任")) { state.trigger = "nonstop"; picks.push("きっかけ"); }
+    else if (has("自動化", "無人", "省人")) { state.trigger = "automation"; picks.push("きっかけ"); }
+    // 立地
+    if (has("東南アジア", "タイ", "ベトナム", "インドネシア")) { state.location = "sea"; picks.push("立地"); }
+    else if (has("インド")) { state.location = "india"; picks.push("立地"); }
+    else if (has("北米", "アメリカ", "米国", "メキシコ")) { state.location = "na"; picks.push("立地"); }
+    else if (has("国内", "日本")) { state.location = "domestic"; picks.push("立地"); }
+    else if (has("海外", "現地生産")) { state.location = "sea"; picks.push("立地"); }
+    // 稼働形態
+    if (has("24", "無人", "ライツアウト", "終日")) { state.shift = "auto"; picks.push("稼働形態"); }
+    else if (has("3交代", "三交代")) { state.shift = "3"; picks.push("稼働形態"); }
+    // 認証
+    var cadd = function (c) { if (state.certs.indexOf(c) < 0) state.certs.push(c); };
+    if (has("クリーンルーム", "クリーン")) { cadd("clean"); picks.push("認証:クリーンルーム"); }
+    if (has("gmp", "医薬")) { cadd("gmp"); picks.push("認証:GMP"); }
+    if (has("haccp")) { cadd("haccp"); picks.push("認証:HACCP"); }
+    if (has("iatf", "車載", "自動車")) { cadd("iatf"); picks.push("認証:IATF"); }
+    if (has("iso")) { cadd("iso9001"); picks.push("認証:ISO9001"); }
+    return picks;
+  }
+
+  var chatLog = document.getElementById("chatLog");
+  function addMsg(who, html) {
+    var d = document.createElement("div");
+    d.className = "msg " + who;
+    d.innerHTML = html;
+    chatLog.appendChild(d);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+  function handleChat(text) {
+    if (!text.trim()) return;
+    addMsg("me", text.replace(/</g, "&lt;"));
+    var picks = parseNL(text);
+    syncControls();
+    update();
+    var t = view.tmpl;
+    if (picks.length) {
+      addMsg("ai", 'ご要望を要件に反映しました。<b>' + t.name + '</b>（' + t.id + '）が最適候補です。'
+        + '<span class="pick">反映：' + picks.join(" / ") + '</span>');
+    } else {
+      addMsg("ai", 'すみません、要件を特定できませんでした。例えば「製品・生産量・立地・認証」を教えてください。');
+    }
+  }
+  document.getElementById("chatForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var inp = document.getElementById("chatInput");
+    handleChat(inp.value);
+    inp.value = "";
+  });
+  // 例文サジェスト
+  var SUG = [
+    "EV電池を月10万個、クリーンルームで海外に",
+    "精密な金属部品を24h無人ラインで",
+    "医薬品をGMP対応で新設したい",
+    "電子基板の実装ラインが手狭になった"
+  ];
+  (function buildSug() {
+    var host = document.getElementById("chatSug"), h = "";
+    for (var i = 0; i < SUG.length; i++) h += '<button type="button">' + SUG[i] + '</button>';
+    host.innerHTML = h;
+    host.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      handleChat(b.textContent);
+    });
+  })();
+  addMsg("ai", 'こんにちは。作りたい工場の要望を自由に話してください。例：「EV電池を月10万個、クリーンルームで東南アジアに」');
+
+  // 3Dモジュールが後から読み込まれた時に初期描画できるよう、現在状態を公開
+  window.CaddiPlantState = function () {
+    return { tmpl: view.tmpl, order: view.order.slice() };
+  };
+
+  update();
+})();
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+var mount = document.getElementById("stage3d");
+
+if (!mount) {
+  window.CaddiPlant3D = { render: function () {} };
+} else {
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1000);
+  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  var controls = new OrbitControls(camera, renderer.domElement);
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var darkMedia = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+  var dynamicGroup = new THREE.Group();
+  var shellGroup = new THREE.Group();
+  var lastCount = 0;
+  var frameId = 0;
+  var disposed = false;
+
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.domElement.style.width = "100%";
+  renderer.domElement.style.height = "340px";
+  renderer.domElement.style.display = "block";
+  mount.appendChild(renderer.domElement);
+
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.07;
+  controls.target.set(0, 1.2, 0);
+  controls.minDistance = 8;
+  controls.maxDistance = 90;
+  controls.maxPolarAngle = Math.PI * 0.48;
+
+  scene.add(shellGroup);
+  scene.add(dynamicGroup);
+
+  var hemi = new THREE.HemisphereLight(0xdfeeff, 0xb7b0a5, 1.45);
+  scene.add(hemi);
+
+  var sun = new THREE.DirectionalLight(0xffffff, 2.45);
+  sun.position.set(-11, 16, 9);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 70;
+  sun.shadow.camera.left = -35;
+  sun.shadow.camera.right = 35;
+  sun.shadow.camera.top = 24;
+  sun.shadow.camera.bottom = -24;
+  scene.add(sun);
+
+  var fill = new THREE.DirectionalLight(0x9fc8ff, 0.45);
+  fill.position.set(10, 8, -12);
+  scene.add(fill);
+
+  var MAT = {
+    floor: new THREE.MeshStandardMaterial({ color: 0x858982, roughness: 0.92, metalness: 0.02 }),
+    wall: new THREE.MeshStandardMaterial({ color: 0xd1d6d7, roughness: 0.72, metalness: 0.05 }),
+    wallDark: new THREE.MeshStandardMaterial({ color: 0x2c3338, roughness: 0.76, metalness: 0.04 }),
+    steel: new THREE.MeshStandardMaterial({ color: 0x6f7881, roughness: 0.38, metalness: 0.58 }),
+    darkSteel: new THREE.MeshStandardMaterial({ color: 0x343b40, roughness: 0.42, metalness: 0.7 }),
+    machine: new THREE.MeshStandardMaterial({ color: 0xd7dde1, roughness: 0.48, metalness: 0.18 }),
+    machineDark: new THREE.MeshStandardMaterial({ color: 0x58636b, roughness: 0.44, metalness: 0.36 }),
+    blue: new THREE.MeshStandardMaterial({ color: 0x3f82c4, roughness: 0.45, metalness: 0.18 }),
+    green: new THREE.MeshStandardMaterial({ color: 0x4d9b72, roughness: 0.52, metalness: 0.12 }),
+    yellow: new THREE.MeshStandardMaterial({ color: 0xf5c84c, roughness: 0.54, metalness: 0.06 }),
+    orange: new THREE.MeshStandardMaterial({ color: 0xd48945, roughness: 0.5, metalness: 0.12 }),
+    red: new THREE.MeshStandardMaterial({ color: 0xc65e5a, roughness: 0.5, metalness: 0.16 }),
+    conveyor: new THREE.MeshStandardMaterial({ color: 0x2f363a, roughness: 0.55, metalness: 0.38 }),
+    belt: new THREE.MeshStandardMaterial({ color: 0x202326, roughness: 0.82, metalness: 0.08 }),
+    roller: new THREE.MeshStandardMaterial({ color: 0xaeb5b8, roughness: 0.32, metalness: 0.7 }),
+    glass: new THREE.MeshStandardMaterial({
+      color: 0x83c9ff,
+      roughness: 0.06,
+      metalness: 0.0,
+      transparent: true,
+      opacity: 0.24,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    }),
+    cleanFloor: new THREE.MeshStandardMaterial({
+      color: 0x6ebdff,
+      roughness: 0.45,
+      metalness: 0.02,
+      transparent: true,
+      opacity: 0.34
+    }),
+    cleanGlow: new THREE.MeshBasicMaterial({
+      color: 0x78cfff,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    }),
+    lane: new THREE.MeshStandardMaterial({ color: 0xf3c333, roughness: 0.58, metalness: 0.04 }),
+    whiteLine: new THREE.MeshStandardMaterial({ color: 0xe8ecec, roughness: 0.62, metalness: 0.02 }),
+    black: new THREE.MeshStandardMaterial({ color: 0x17191a, roughness: 0.7, metalness: 0.08 })
+  };
+
+  function themeIsDark() {
+    var t = document.documentElement && document.documentElement.dataset && document.documentElement.dataset.theme;
+    if (t === "dark") return true;
+    if (t === "light") return false;
+    return !!(darkMedia && darkMedia.matches);
+  }
+
+  function updateTheme() {
+    var dark = themeIsDark();
+    scene.background = new THREE.Color(dark ? 0x101417 : 0xf4f7f8);
+    scene.fog = new THREE.Fog(dark ? 0x101417 : 0xf4f7f8, 44, 96);
+    MAT.wall.color.setHex(dark ? 0x39434a : 0xd1d6d7);
+    MAT.floor.color.setHex(dark ? 0x686e6a : 0x858982);
+    hemi.intensity = dark ? 1.1 : 1.45;
+    sun.intensity = dark ? 2.0 : 2.45;
+  }
+
+  function resize() {
+    var rect = mount.getBoundingClientRect();
+    var w = Math.max(1, Math.floor(rect.width || mount.clientWidth || 1));
+    var h = Math.max(1, Math.floor(rect.height || mount.clientHeight || 340));
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+  }
+
+  function disposeMaterial(mat) {
+    if (!mat) return;
+    if (Array.isArray(mat)) {
+      for (var i = 0; i < mat.length; i++) disposeMaterial(mat[i]);
+      return;
+    }
+    if (mat.map) mat.map.dispose();
+    if (mat.alphaMap) mat.alphaMap.dispose();
+    if (mat.emissiveMap) mat.emissiveMap.dispose();
+    if (mat.normalMap) mat.normalMap.dispose();
+    mat.dispose();
+  }
+
+  function disposeObject(obj) {
+    obj.traverse(function (child) {
+      if (child.geometry) child.geometry.dispose();
+      if (child.userData && child.userData.disposeMaterial) disposeMaterial(child.material);
+    });
+  }
+
+  function clearGroup(group) {
+    while (group.children.length) {
+      var child = group.children.pop();
+      disposeObject(child);
+      child.parent = null;
+    }
+  }
+
+  function box(w, h, d, mat, x, y, z, cast, receive) {
+    var mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    mesh.position.set(x || 0, y || h / 2, z || 0);
+    mesh.castShadow = cast !== false;
+    mesh.receiveShadow = receive !== false;
+    return mesh;
+  }
+
+  function cyl(r1, r2, h, mat, x, y, z, rotX, rotZ, seg) {
+    var mesh = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg || 32), mat);
+    mesh.position.set(x || 0, y || 0, z || 0);
+    if (rotX) mesh.rotation.x = rotX;
+    if (rotZ) mesh.rotation.z = rotZ;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  function plane(w, d, mat, x, y, z) {
+    var mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x || 0, y || 0, z || 0);
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  function roundedRectCanvas(text, fill, stroke, textColor) {
+    var canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 160;
+    var ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 10;
+    var x = 10, y = 10, w = 492, h = 140, r = 22;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = textColor;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 42px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    var clipped = text || "";
+    while (ctx.measureText(clipped).width > 420 && clipped.length > 2) clipped = clipped.slice(0, -2) + "...";
+    ctx.fillText(clipped, 256, 82);
+    var texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+
+  function labelSprite(text, x, y, z, clean) {
+    var tex = roundedRectCanvas(text, clean ? "rgba(214,243,255,0.92)" : "rgba(255,255,255,0.9)", clean ? "#56aee9" : "#7d878c", "#172027");
+    var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+    var sp = new THREE.Sprite(mat);
+    sp.position.set(x, y, z);
+    sp.scale.set(2.7, 0.84, 1);
+    sp.userData.disposeMaterial = true;
+    return sp;
+  }
+
+  function makeTextTexture(text, color) {
+    var canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 64;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = color || "#20282d";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 28px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    var clipped = text || "";
+    while (ctx.measureText(clipped).width > 230 && clipped.length > 2) clipped = clipped.slice(0, -2) + "...";
+    ctx.fillText(clipped, 128, 32);
+    var texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+
+  function addSign(group, text, x, y, z, rotY) {
+    var sign = box(1.9, 0.52, 0.06, MAT.whiteLine, x, y, z, true, true);
+    sign.rotation.y = rotY || 0;
+    var tex = makeTextTexture(text, "#1e2b32");
+    var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+    var face = new THREE.Mesh(new THREE.PlaneGeometry(1.72, 0.42), mat);
+    face.position.set(x, y, z + Math.cos(rotY || 0) * 0.034);
+    face.rotation.y = rotY || 0;
+    face.userData.disposeMaterial = true;
+    group.add(sign, face);
+  }
+
+  function addPipe(group, fromX, toX, z, y, colorMat) {
+    var len = Math.abs(toX - fromX);
+    var pipe = cyl(0.055, 0.055, len, colorMat || MAT.steel, (fromX + toX) / 2, y, z, 0, Math.PI / 2, 16);
+    pipe.rotation.z = Math.PI / 2;
+    group.add(pipe);
+    group.add(cyl(0.08, 0.08, 0.18, colorMat || MAT.steel, fromX, y, z, Math.PI / 2, 0, 16));
+    group.add(cyl(0.08, 0.08, 0.18, colorMat || MAT.steel, toX, y, z, Math.PI / 2, 0, 16));
+  }
+
+  function addConveyor(group, x1, x2, z) {
+    var len = Math.abs(x2 - x1);
+    var cx = (x1 + x2) / 2;
+    group.add(box(len, 0.12, 0.72, MAT.conveyor, cx, 0.42, z, true, true));
+    group.add(box(len * 0.96, 0.08, 0.54, MAT.belt, cx, 0.55, z, true, true));
+    var count = Math.max(3, Math.floor(len / 0.7));
+    for (var i = 0; i < count; i++) {
+      var t = count === 1 ? 0.5 : i / (count - 1);
+      var x = x1 + (x2 - x1) * t;
+      var roller = cyl(0.055, 0.055, 0.68, MAT.roller, x, 0.62, z, Math.PI / 2, 0, 14);
+      roller.rotation.z = Math.PI / 2;
+      group.add(roller);
+    }
+    for (var p = 0; p < 4; p++) {
+      var px = p < 2 ? x1 + 0.25 : x2 - 0.25;
+      var pz = p % 2 ? z + 0.32 : z - 0.32;
+      group.add(box(0.08, 0.42, 0.08, MAT.steel, px, 0.21, pz, true, true));
+    }
+  }
+
+  function addPallet(group, x, z, stacks) {
+    group.add(box(0.95, 0.12, 0.7, MAT.orange, x, 0.08, z, true, true));
+    group.add(box(0.9, 0.05, 0.09, MAT.darkSteel, x, 0.18, z - 0.22, true, true));
+    group.add(box(0.9, 0.05, 0.09, MAT.darkSteel, x, 0.18, z + 0.22, true, true));
+    var n = stacks || 2;
+    for (var i = 0; i < n; i++) {
+      group.add(box(0.34, 0.28, 0.28, MAT.machine, x - 0.22 + i * 0.44, 0.34, z, true, true));
+    }
+  }
+
+  function addRobotArm(group, x, z, accent) {
+    group.add(cyl(0.34, 0.42, 0.22, MAT.darkSteel, x, 0.17, z, 0, 0, 28));
+    group.add(cyl(0.16, 0.16, 0.72, accent || MAT.yellow, x, 0.58, z, 0, 0, 24));
+    var arm1 = box(0.28, 0.28, 1.0, accent || MAT.yellow, x + 0.3, 1.03, z, true, true);
+    arm1.rotation.z = -0.38;
+    arm1.rotation.y = 0.22;
+    group.add(arm1);
+    var joint = cyl(0.2, 0.2, 0.32, MAT.darkSteel, x + 0.63, 1.18, z + 0.08, Math.PI / 2, 0, 20);
+    group.add(joint);
+    var arm2 = box(0.22, 0.22, 0.86, accent || MAT.yellow, x + 1.0, 1.0, z + 0.22, true, true);
+    arm2.rotation.z = 0.5;
+    arm2.rotation.y = -0.38;
+    group.add(arm2);
+    group.add(box(0.34, 0.1, 0.16, MAT.black, x + 1.36, 0.78, z + 0.34, true, true));
+  }
+
+  function makeReceiving(group, x, z, name) {
+    group.add(box(2.0, 1.1, 1.15, MAT.machineDark, x, 0.55, z, true, true));
+    group.add(box(1.64, 0.78, 0.06, MAT.darkSteel, x, 0.62, z - 0.61, true, true));
+    for (var i = 0; i < 5; i++) {
+      group.add(box(1.54, 0.035, 0.025, MAT.roller, x, 0.3 + i * 0.14, z - 0.65, true, true));
+    }
+    group.add(box(2.15, 0.18, 1.26, MAT.steel, x, 1.18, z, true, true));
+    addPallet(group, x - 1.45, z + 0.2, 2);
+    addPallet(group, x + 1.35, z + 0.32, 1);
+    addSign(group, name, x, 1.65, z - 0.68, 0);
+  }
+
+  function makeMachining(group, x, z, name, precise) {
+    group.add(box(2.25, 0.35, 1.45, MAT.darkSteel, x, 0.18, z, true, true));
+    group.add(box(1.55, 1.2, 1.08, precise ? MAT.blue : MAT.machine, x - 0.15, 0.95, z, true, true));
+    group.add(box(0.74, 0.86, 0.08, MAT.glass, x - 0.55, 1.02, z - 0.57, true, true));
+    group.add(box(0.44, 0.86, 0.08, MAT.machineDark, x + 0.43, 1.02, z - 0.57, true, true));
+    group.add(cyl(0.14, 0.14, 0.72, MAT.darkSteel, x + 0.48, 1.72, z, Math.PI / 2, 0, 24));
+    group.add(cyl(0.07, 0.11, 0.45, MAT.steel, x + 0.48, 1.45, z - 0.03, 0, 0, 20));
+    group.add(box(0.5, 0.12, 0.38, MAT.roller, x - 0.1, 0.58, z - 0.1, true, true));
+    addRobotArm(group, x + 1.25, z + 0.25, MAT.yellow);
+    addSign(group, name, x, 1.92, z - 0.64, 0);
+  }
+
+  function makeDeburr(group, x, z, name) {
+    group.add(box(2.0, 0.22, 1.25, MAT.darkSteel, x, 0.12, z, true, true));
+    group.add(box(1.25, 0.82, 0.82, MAT.green, x - 0.28, 0.65, z, true, true));
+    group.add(cyl(0.36, 0.36, 0.28, MAT.steel, x + 0.55, 0.78, z - 0.42, Math.PI / 2, 0, 32));
+    group.add(cyl(0.28, 0.28, 0.2, MAT.roller, x + 0.55, 0.78, z - 0.62, Math.PI / 2, 0, 32));
+    group.add(box(0.55, 0.62, 0.62, MAT.machine, x + 0.68, 0.55, z + 0.24, true, true));
+    addRobotArm(group, x - 1.1, z + 0.18, MAT.orange);
+    addSign(group, name, x, 1.55, z - 0.58, 0);
+  }
+
+  function makeWash(group, x, z, name) {
+    group.add(box(2.15, 0.28, 1.3, MAT.darkSteel, x, 0.15, z, true, true));
+    group.add(box(1.72, 0.95, 1.04, MAT.machine, x, 0.72, z, true, true));
+    group.add(box(0.5, 0.78, 0.07, MAT.glass, x - 0.46, 0.77, z - 0.55, true, true));
+    group.add(box(0.5, 0.78, 0.07, MAT.glass, x + 0.46, 0.77, z - 0.55, true, true));
+    addPipe(group, x - 0.8, x + 0.8, z + 0.64, 1.42, MAT.blue);
+    group.add(cyl(0.26, 0.26, 1.18, MAT.blue, x - 1.22, 0.72, z + 0.2, 0, 0, 28));
+    group.add(cyl(0.22, 0.22, 1.02, MAT.green, x + 1.18, 0.64, z + 0.25, 0, 0, 28));
+    addSign(group, name, x, 1.65, z - 0.62, 0);
+  }
+
+  function makeCoating(group, x, z, name) {
+    group.add(box(2.65, 0.22, 1.22, MAT.darkSteel, x, 0.12, z, true, true));
+    group.add(box(2.35, 0.72, 0.92, MAT.machine, x, 0.55, z, true, true));
+    for (var i = 0; i < 4; i++) {
+      var rx = x - 0.82 + i * 0.55;
+      group.add(cyl(0.16, 0.16, 0.96, i % 2 ? MAT.roller : MAT.darkSteel, rx, 0.92, z - 0.02, Math.PI / 2, 0, 28));
+    }
+    group.add(box(2.12, 0.08, 0.75, MAT.belt, x, 0.93, z, true, true));
+    group.add(cyl(0.25, 0.25, 0.95, MAT.orange, x - 1.35, 0.7, z + 0.05, Math.PI / 2, 0, 32));
+    group.add(cyl(0.25, 0.25, 0.95, MAT.green, x + 1.35, 0.7, z + 0.05, Math.PI / 2, 0, 32));
+    addSign(group, name, x, 1.55, z - 0.56, 0);
+  }
+
+  function makeDryer(group, x, z, name) {
+    group.add(box(3.0, 0.26, 1.34, MAT.darkSteel, x, 0.14, z, true, true));
+    group.add(box(2.8, 0.9, 1.04, MAT.orange, x, 0.72, z, true, true));
+    group.add(box(2.45, 0.18, 0.1, MAT.black, x, 0.74, z - 0.58, true, true));
+    for (var i = 0; i < 5; i++) {
+      group.add(box(0.08, 0.16, 0.08, MAT.yellow, x - 1.08 + i * 0.54, 1.22, z - 0.57, true, true));
+    }
+    group.add(cyl(0.11, 0.11, 2.65, MAT.steel, x, 1.34, z + 0.22, 0, Math.PI / 2, 20));
+    addSign(group, name, x, 1.78, z - 0.63, 0);
+  }
+
+  function makePress(group, x, z, name) {
+    group.add(box(2.0, 0.32, 1.35, MAT.darkSteel, x, 0.17, z, true, true));
+    group.add(box(1.55, 1.75, 0.26, MAT.steel, x, 1.0, z + 0.48, true, true));
+    group.add(box(1.55, 1.75, 0.26, MAT.steel, x, 1.0, z - 0.48, true, true));
+    group.add(box(1.8, 0.26, 1.2, MAT.machineDark, x, 1.72, z, true, true));
+    group.add(box(1.32, 0.18, 0.82, MAT.red, x, 1.0, z, true, true));
+    group.add(box(1.22, 0.1, 0.72, MAT.roller, x, 0.65, z, true, true));
+    addSign(group, name, x, 2.2, z - 0.64, 0);
+  }
+
+  function makeWinding(group, x, z, name) {
+    group.add(box(2.2, 0.26, 1.45, MAT.darkSteel, x, 0.14, z, true, true));
+    group.add(cyl(0.52, 0.52, 0.48, MAT.blue, x - 0.54, 0.9, z - 0.18, Math.PI / 2, 0, 44));
+    group.add(cyl(0.42, 0.42, 0.48, MAT.orange, x + 0.5, 0.9, z + 0.18, Math.PI / 2, 0, 44));
+    group.add(cyl(0.14, 0.14, 1.55, MAT.roller, x, 0.94, z, Math.PI / 2, Math.PI / 2, 24));
+    group.add(box(0.7, 0.85, 0.48, MAT.machine, x + 1.06, 0.65, z - 0.36, true, true));
+    addSign(group, name, x, 1.68, z - 0.66, 0);
+  }
+
+  function makeTank(group, x, z, name) {
+    group.add(box(2.05, 0.22, 1.28, MAT.darkSteel, x, 0.12, z, true, true));
+    group.add(cyl(0.46, 0.46, 1.35, MAT.machine, x - 0.48, 0.85, z, 0, 0, 36));
+    group.add(cyl(0.42, 0.42, 1.18, MAT.blue, x + 0.52, 0.77, z + 0.05, 0, 0, 36));
+    group.add(cyl(0.12, 0.12, 0.75, MAT.steel, x - 0.48, 1.62, z, 0, 0, 20));
+    addPipe(group, x - 0.48, x + 0.52, z, 1.32, MAT.steel);
+    group.add(box(0.62, 0.58, 0.4, MAT.machineDark, x + 1.05, 0.45, z - 0.3, true, true));
+    addSign(group, name, x, 1.95, z - 0.64, 0);
+  }
+
+  function makeInspection(group, x, z, name) {
+    group.add(box(2.1, 0.18, 1.1, MAT.darkSteel, x, 0.1, z, true, true));
+    group.add(box(0.18, 1.52, 0.18, MAT.steel, x - 0.82, 0.82, z - 0.38, true, true));
+    group.add(box(0.18, 1.52, 0.18, MAT.steel, x + 0.82, 0.82, z - 0.38, true, true));
+    group.add(box(1.82, 0.18, 0.18, MAT.steel, x, 1.52, z - 0.38, true, true));
+    group.add(box(1.42, 0.08, 0.72, MAT.belt, x, 0.52, z, true, true));
+    group.add(cyl(0.13, 0.13, 0.62, MAT.black, x, 1.32, z - 0.38, Math.PI / 2, 0, 20));
+    group.add(cyl(0.08, 0.08, 0.2, MAT.blue, x, 1.0, z - 0.18, 0, 0, 20));
+    group.add(box(0.58, 0.86, 0.36, MAT.machine, x + 1.15, 0.55, z + 0.18, true, true));
+    addSign(group, name, x, 1.9, z - 0.6, 0);
+  }
+
+  function makeChemical(group, x, z, name) {
+    group.add(box(2.35, 0.22, 1.3, MAT.darkSteel, x, 0.12, z, true, true));
+    for (var i = 0; i < 3; i++) {
+      group.add(cyl(0.3, 0.3, 1.06, i === 1 ? MAT.green : MAT.blue, x - 0.68 + i * 0.68, 0.68, z, 0, 0, 28));
+      group.add(cyl(0.31, 0.31, 0.06, MAT.steel, x - 0.68 + i * 0.68, 1.24, z, 0, 0, 28));
+    }
+    addPipe(group, x - 0.72, x + 0.72, z + 0.38, 1.28, MAT.steel);
+    group.add(box(0.82, 0.52, 0.42, MAT.machineDark, x + 1.15, 0.38, z - 0.25, true, true));
+    addSign(group, name, x, 1.72, z - 0.62, 0);
+  }
+
+  function kindOf(name) {
+    var s = String(name || "");
+    if (/受入|入荷|材料|出荷|梱包|発送/.test(s)) return "receiving";
+    if (/乾燥|炉|焼成|熱/.test(s)) return "dryer";
+    if (/塗工|塗布|コート/.test(s)) return "coating";
+    if (/プレス|圧延|成形|加圧/.test(s)) return "press";
+    if (/巻回|巻取|ワイン/.test(s)) return "winding";
+    if (/注液|混練|調合|タンク|液|化成/.test(s)) return "tank";
+    if (/洗浄|水洗|脱脂/.test(s)) return "wash";
+    if (/検査|測定|三次元|品質/.test(s)) return "inspection";
+    if (/バリ|研磨|仕上/.test(s)) return "deburr";
+    if (/切削|加工|粗加工|精密|機械/.test(s)) return "machining";
+    return "machining";
+  }
+
+  function addMachine(group, name, x, z, index) {
+    var kind = kindOf(name);
+    if (kind === "receiving") makeReceiving(group, x, z, name);
+    else if (kind === "dryer") makeDryer(group, x, z, name);
+    else if (kind === "coating") makeCoating(group, x, z, name);
+    else if (kind === "press") makePress(group, x, z, name);
+    else if (kind === "winding") makeWinding(group, x, z, name);
+    else if (kind === "tank") makeTank(group, x, z, name);
+    else if (kind === "wash") makeWash(group, x, z, name);
+    else if (kind === "inspection") makeInspection(group, x, z, name);
+    else if (kind === "deburr") makeDeburr(group, x, z, name);
+    else makeMachining(group, x, z, name, index % 2 === 0);
+  }
+
+  function addFloorDetails(group, n, length, width, names, cleanSet) {
+    group.add(plane(length + 6, width + 3, MAT.floor, 0, 0, 0));
+
+    var gridMat = new THREE.LineBasicMaterial({ color: themeIsDark() ? 0x8d9694 : 0x69716d, transparent: true, opacity: 0.18 });
+    gridMat.userData = { transient: true };
+    var geo = new THREE.BufferGeometry();
+    var verts = [];
+    for (var gx = -length / 2 - 3; gx <= length / 2 + 3.01; gx += 1) {
+      verts.push(gx, 0.012, -width / 2 - 1.5, gx, 0.012, width / 2 + 1.5);
+    }
+    for (var gz = -width / 2 - 1.5; gz <= width / 2 + 1.51; gz += 1) {
+      verts.push(-length / 2 - 3, 0.012, gz, length / 2 + 3, 0.012, gz);
+    }
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    var grid = new THREE.LineSegments(geo, gridMat);
+    grid.userData.disposeMaterial = true;
+    group.add(grid);
+
+    group.add(plane(length + 4, 0.12, MAT.lane, 0, 0.025, -2.6));
+    group.add(plane(length + 4, 0.12, MAT.lane, 0, 0.025, 2.6));
+    group.add(plane(length + 4, 0.055, MAT.whiteLine, 0, 0.03, -1.95));
+    group.add(plane(length + 4, 0.055, MAT.whiteLine, 0, 0.03, 1.95));
+
+    var pitch = length / n;
+    var palette = [0x9fb7aa, 0xa8b6c8, 0xb5aba0, 0x9eb8bf, 0xb5b9a3, 0xb0a9bd, 0xbca99d, 0xa3b9b0, 0xb6b0a4];
+    for (var i = 0; i < n; i++) {
+      var x = -length / 2 + pitch * (i + 0.5);
+      var clean = cleanSet.has(names[i]);
+      var mat = clean ? MAT.cleanFloor : new THREE.MeshStandardMaterial({
+        color: palette[i % palette.length],
+        roughness: 0.72,
+        metalness: 0.02,
+        transparent: true,
+        opacity: 0.26
+      });
+      var zone = plane(Math.max(2.8, pitch - 0.36), 2.72, mat, x, 0.022, 0);
+      if (!clean) zone.userData.disposeMaterial = true;
+      group.add(zone);
+    }
+  }
+
+  function addBuilding(group, n, length, width) {
+    var wallH = 4.4;
+    var wallT = 0.16;
+    group.add(box(length + 6.2, wallH, wallT, MAT.wall, 0, wallH / 2, width / 2 + 1.55, false, true));
+    group.add(box(wallT, wallH, width + 3.2, MAT.wall, -length / 2 - 3.1, wallH / 2, 0, false, true));
+    group.add(box(wallT, wallH, width + 3.2, MAT.wall, length / 2 + 3.1, wallH / 2, 0, false, true));
+
+    var beamY = wallH + 0.18;
+    var steel = MAT.steel;
+    group.add(box(length + 6.5, 0.16, 0.18, steel, 0, beamY, -width / 2 - 1.55, true, true));
+    group.add(box(length + 6.5, 0.16, 0.18, steel, 0, beamY, width / 2 + 1.55, true, true));
+    group.add(box(0.18, 0.16, width + 3.3, steel, -length / 2 - 3.15, beamY, 0, true, true));
+    group.add(box(0.18, 0.16, width + 3.3, steel, length / 2 + 3.15, beamY, 0, true, true));
+
+    var colCount = Math.max(4, Math.ceil(n / 2) + 2);
+    for (var i = 0; i < colCount; i++) {
+      var t = colCount === 1 ? 0.5 : i / (colCount - 1);
+      var x = -length / 2 - 2.7 + (length + 5.4) * t;
+      group.add(box(0.18, wallH, 0.18, steel, x, wallH / 2, -width / 2 - 1.35, true, true));
+      group.add(box(0.18, wallH, 0.18, steel, x, wallH / 2, width / 2 + 1.35, true, true));
+      group.add(box(0.14, 0.14, width + 2.6, steel, x, beamY + 0.55, 0, true, true));
+
+      var trussGeo = new THREE.BufferGeometry();
+      var verts = [
+        x, beamY + 0.1, -width / 2 - 1.25, x, beamY + 1.08, 0,
+        x, beamY + 1.08, 0, x, beamY + 0.1, width / 2 + 1.25,
+        x, beamY + 0.1, -width / 2 - 1.25, x, beamY + 0.1, width / 2 + 1.25
+      ];
+      trussGeo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+      var trussMat = new THREE.LineBasicMaterial({ color: 0x667079, transparent: true, opacity: 0.9 });
+      var truss = new THREE.LineSegments(trussGeo, trussMat);
+      truss.userData.disposeMaterial = true;
+      group.add(truss);
+    }
+
+    for (var l = 0; l < 6; l++) {
+      var lx = -length / 2 - 1.5 + l * ((length + 3) / 5);
+      var lamp = box(0.72, 0.05, 0.18, new THREE.MeshBasicMaterial({ color: 0xffffdf }), lx, beamY - 0.16, -1.15, true, false);
+      lamp.userData.disposeMaterial = true;
+      group.add(lamp);
+      var pl = new THREE.PointLight(0xfff5cf, 0.35, 7, 2);
+      pl.position.set(lx, beamY - 0.22, -1.15);
+      group.add(pl);
+    }
+  }
+
+  function addCleanRoom(group, x, pitch, name) {
+    var w = Math.max(2.9, pitch - 0.18);
+    var d = 3.35;
+    var h = 2.7;
+    group.add(box(w, 0.08, d, MAT.cleanGlow, x, h, 0, false, false));
+    group.add(box(w, h, 0.06, MAT.glass, x, h / 2, -d / 2, false, false));
+    group.add(box(w, h, 0.06, MAT.glass, x, h / 2, d / 2, false, false));
+    group.add(box(0.06, h, d, MAT.glass, x - w / 2, h / 2, 0, false, false));
+    group.add(box(0.06, h, d, MAT.glass, x + w / 2, h / 2, 0, false, false));
+    group.add(box(w + 0.08, 0.08, 0.08, MAT.blue, x, h + 0.05, -d / 2, true, true));
+    group.add(box(w + 0.08, 0.08, 0.08, MAT.blue, x, h + 0.05, d / 2, true, true));
+    group.add(box(0.08, 0.08, d + 0.08, MAT.blue, x - w / 2, h + 0.05, 0, true, true));
+    group.add(box(0.08, 0.08, d + 0.08, MAT.blue, x + w / 2, h + 0.05, 0, true, true));
+    group.add(labelSprite("Clean: " + name, x, 3.22, 1.75, true));
+  }
+
+  function addAGV(group, x, z, i) {
+    var agv = new THREE.Group();
+    agv.position.set(x, 0, z);
+    agv.add(box(0.82, 0.16, 0.52, MAT.yellow, 0, 0.16, 0, true, true));
+    agv.add(box(0.58, 0.08, 0.34, MAT.black, 0, 0.28, 0, true, true));
+    agv.add(cyl(0.07, 0.07, 0.12, MAT.black, -0.27, 0.08, -0.3, Math.PI / 2, 0, 16));
+    agv.add(cyl(0.07, 0.07, 0.12, MAT.black, 0.27, 0.08, -0.3, Math.PI / 2, 0, 16));
+    agv.add(cyl(0.07, 0.07, 0.12, MAT.black, -0.27, 0.08, 0.3, Math.PI / 2, 0, 16));
+    agv.add(cyl(0.07, 0.07, 0.12, MAT.black, 0.27, 0.08, 0.3, Math.PI / 2, 0, 16));
+    agv.userData.phase = i * 0.9;
+    group.add(agv);
+  }
+
+  function rebuild(template, order) {
+    clearGroup(dynamicGroup);
+    clearGroup(shellGroup);
+
+    var flow = template && Array.isArray(template.processFlow) ? template.processFlow : [];
+    var ord = Array.isArray(order) && order.length ? order : flow.map(function (_, i) { return i; });
+    var names = ord.map(function (idx) { return flow[idx] == null ? String(idx) : String(flow[idx]); }).filter(Boolean);
+    if (!names.length) return;
+
+    var n = names.length;
+    var pitch = 4.25;
+    var length = Math.max(14, pitch * n);
+    var width = 7.0;
+    var cleanZones = template && Array.isArray(template.cleanZones) ? template.cleanZones : [];
+    var cleanSet = new Set(cleanZones.map(function (v) { return String(v); }));
+
+    addFloorDetails(shellGroup, n, length, width, names, cleanSet);
+    addBuilding(shellGroup, n, length, width);
+
+    for (var i = 0; i < n; i++) {
+      var x = -length / 2 + pitch * (i + 0.5);
+      var clean = cleanSet.has(names[i]);
+      if (clean) addCleanRoom(dynamicGroup, x, pitch, names[i]);
+      addMachine(dynamicGroup, names[i], x, -0.12, i);
+      dynamicGroup.add(labelSprite(String(i + 1) + ". " + names[i], x, 2.75, -1.62, clean));
+
+      if (i < n - 1) {
+        var nx = -length / 2 + pitch * (i + 1.5);
+        addConveyor(dynamicGroup, x + 1.55, nx - 1.55, -0.98);
+      }
+    }
+
+    var agvCount = Math.min(3, Math.max(1, Math.floor(n / 3)));
+    for (var a = 0; a < agvCount; a++) {
+      var ax = -length / 2 + 2.2 + a * ((length - 4.4) / Math.max(1, agvCount - 1));
+      addAGV(dynamicGroup, ax, 2.25, a);
+    }
+
+    if (n !== lastCount) {
+      fitCamera(length, width);
+      lastCount = n;
+    }
+  }
+
+  function fitCamera(length, width) {
+    var radius = Math.max(length * 0.55, width * 1.6, 9);
+    controls.target.set(0, 1.45, 0);
+    camera.position.set(radius * 0.66, radius * 0.48, radius * 0.66);
+    camera.near = 0.1;
+    camera.far = Math.max(120, radius * 4);
+    camera.updateProjectionMatrix();
+    controls.update();
+  }
+
+  function animate(time) {
+    if (disposed) return;
+    frameId = requestAnimationFrame(animate);
+    if (!reduceMotion) {
+      var t = time * 0.001;
+      dynamicGroup.traverse(function (obj) {
+        if (obj.userData && obj.userData.phase !== undefined) {
+          obj.position.x += Math.sin(t + obj.userData.phase) * 0.0025;
+        }
+      });
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  window.CaddiPlant3D = {
+    render: function (template, order) {
+      updateTheme();
+      resize();
+      rebuild(template || {}, order || []);
+      renderer.render(scene, camera);
+    }
+  };
+
+  window.addEventListener("resize", resize);
+  if (darkMedia && darkMedia.addEventListener) {
+    darkMedia.addEventListener("change", function () {
+      updateTheme();
+      renderer.render(scene, camera);
+    });
+  }
+
+  var observer = new MutationObserver(function () {
+    updateTheme();
+    renderer.render(scene, camera);
+  });
+  if (document.documentElement) observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  updateTheme();
+  resize();
+  animate(0);
+
+  var st = window.CaddiPlantState && window.CaddiPlantState();
+  if (st && st.tmpl) window.CaddiPlant3D.render(st.tmpl, st.order);
+}
+</script>
