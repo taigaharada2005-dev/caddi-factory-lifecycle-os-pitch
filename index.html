@@ -1,0 +1,551 @@
+<title>CADDi Factory Lifecycle OS — チーム発表原稿</title>
+<style>
+  :root {
+    --ink: #14181c;
+    --paper: #eceef0;
+    --panel: #e1e4e7;
+    --panel-deep: #d3d7da;
+    --steel: #55626c;
+    --steel-deep: #2c363d;
+    --line: rgba(20, 24, 28, 0.14);
+    --line-strong: rgba(20, 24, 28, 0.28);
+    --accent: #a8481f;
+    --accent-deep: #7c3417;
+    --good: #3a7160;
+    --good-bg: rgba(58, 113, 96, 0.1);
+    --warn: #a3721b;
+    --warn-bg: rgba(163, 114, 27, 0.12);
+
+    --font-display: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP", "Helvetica Neue", Arial, sans-serif;
+    --font-body: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Consolas", "Yu Gothic UI", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #eef0ee;
+      --paper: #14181a;
+      --panel: #1b2023;
+      --panel-deep: #242b2f;
+      --steel: #9aa7ae;
+      --steel-deep: #c7d0d4;
+      --line: rgba(238, 240, 238, 0.14);
+      --line-strong: rgba(238, 240, 238, 0.26);
+      --accent: #d97a4c;
+      --accent-deep: #eb976e;
+      --good: #5fae95;
+      --good-bg: rgba(95, 174, 149, 0.14);
+      --warn: #d1a53e;
+      --warn-bg: rgba(209, 165, 62, 0.14);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #eef0ee; --paper: #14181a; --panel: #1b2023; --panel-deep: #242b2f;
+    --steel: #9aa7ae; --steel-deep: #c7d0d4;
+    --line: rgba(238, 240, 238, 0.14); --line-strong: rgba(238, 240, 238, 0.26);
+    --accent: #d97a4c; --accent-deep: #eb976e;
+    --good: #5fae95; --good-bg: rgba(95, 174, 149, 0.14);
+    --warn: #d1a53e; --warn-bg: rgba(209, 165, 62, 0.14);
+  }
+  :root[data-theme="light"] {
+    --ink: #14181c; --paper: #eceef0; --panel: #e1e4e7; --panel-deep: #d3d7da;
+    --steel: #55626c; --steel-deep: #2c363d;
+    --line: rgba(20, 24, 28, 0.14); --line-strong: rgba(20, 24, 28, 0.28);
+    --accent: #a8481f; --accent-deep: #7c3417;
+    --good: #3a7160; --good-bg: rgba(58, 113, 96, 0.1);
+    --warn: #a3721b; --warn-bg: rgba(163, 114, 27, 0.12);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: clamp(20px, 4vw, 48px);
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: clamp(24px, 4vw, 48px);
+    align-items: start;
+  }
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+  }
+
+  /* ---------------- nav rail ---------------- */
+  nav.rail {
+    position: sticky;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+  @media (max-width: 880px) { nav.rail { position: static; flex-direction: row; flex-wrap: wrap; } }
+  nav.rail a {
+    color: var(--steel);
+    text-decoration: none;
+    padding: 7px 10px;
+    border-radius: 3px;
+    border-left: 2px solid transparent;
+  }
+  nav.rail a:hover { color: var(--ink); background: var(--panel); border-left-color: var(--accent); }
+
+  /* ---------------- header ---------------- */
+  header.cover {
+    padding-bottom: clamp(20px, 3vw, 32px);
+    border-bottom: 1px solid var(--line-strong);
+    margin-bottom: clamp(28px, 4vw, 44px);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1.title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+    margin: 0 0 12px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  p.thesis {
+    font-size: clamp(1rem, 1.4vw, 1.15rem);
+    color: var(--steel-deep);
+    max-width: 42em;
+    margin: 0;
+  }
+
+  /* ---------------- sections ---------------- */
+  section.step {
+    padding-top: clamp(28px, 4vw, 40px);
+    margin-top: clamp(28px, 4vw, 40px);
+    border-top: 1px solid var(--line);
+    scroll-margin-top: 20px;
+  }
+  section.step:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+
+  .step-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .step-num {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--paper);
+    background: var(--steel-deep);
+    padding: 3px 9px;
+    border-radius: 3px;
+    letter-spacing: 0.03em;
+  }
+  h2.step-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.2rem, 2vw, 1.5rem);
+    margin: 0;
+    text-wrap: balance;
+  }
+  .step-method {
+    font-size: 0.82rem;
+    color: var(--steel);
+    margin: -8px 0 20px;
+  }
+
+  h3 {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 22px 0 10px;
+  }
+
+  p { max-width: 42em; }
+  .step p, .step li { max-width: 42em; }
+
+  ul.plain { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  ul.plain li { position: relative; padding-left: 18px; }
+  ul.plain li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 7px; height: 1px; background: var(--steel); }
+
+  /* callouts */
+  .callout {
+    max-width: 44em;
+    padding: 14px 18px;
+    border-radius: 4px;
+    margin: 18px 0;
+    font-size: 0.95rem;
+  }
+  .callout.verdict-good { background: var(--good-bg); border-left: 3px solid var(--good); }
+  .callout.verdict-warn { background: var(--warn-bg); border-left: 3px solid var(--warn); }
+  .callout .label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .verdict-good .label { color: var(--good); }
+  .verdict-warn .label { color: var(--warn); }
+
+  /* trigger cards for STEP2 */
+  .trigger-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 14px;
+    margin: 16px 0 8px;
+  }
+  .trigger-card {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 14px 16px;
+    background: var(--panel);
+  }
+  .trigger-card .tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .trigger-card h4 { margin: 5px 0 6px; font-size: 0.94rem; font-family: var(--font-display); }
+  .trigger-card p { margin: 0; font-size: 0.85rem; color: var(--steel-deep); max-width: none; }
+
+  /* tables */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--steel); font-weight: 600; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* journey */
+  .journey {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 18px 0;
+  }
+  .journey li {
+    display: grid;
+    grid-template-columns: 5.5em 1fr;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+  .journey li:first-child { border-top: none; }
+  .journey .moment {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--accent);
+  }
+  .journey p { margin: 0; font-size: 0.92rem; }
+
+  /* revenue model chips */
+  .layer-list { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+  .layer {
+    display: grid;
+    grid-template-columns: 1.6em 1fr;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+  }
+  .layer .n { font-family: var(--font-mono); color: var(--accent); font-weight: 700; }
+  .layer strong { font-family: var(--font-display); }
+  .layer p { margin: 4px 0 0; font-size: 0.87rem; color: var(--steel-deep); max-width: none; }
+
+  footer.colophon {
+    margin-top: clamp(32px, 5vw, 48px);
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--steel);
+  }
+</style>
+
+<div class="shell">
+
+  <nav class="rail" aria-label="STEP目次">
+    <a href="#s1">STEP1 マクロ課題</a>
+    <a href="#s2">STEP2 細分化</a>
+    <a href="#s3">STEP3 ペルソナ</a>
+    <a href="#s4">STEP4 ボトルネック</a>
+    <a href="#s5">STEP5 解決策</a>
+    <a href="#s6">STEP6 VRIO/リスク</a>
+    <a href="#s7">STEP7 収益性</a>
+  </nav>
+
+  <div>
+    <header class="cover">
+      <p class="eyebrow">CADDi Internship Proposal — Draft for Team Review</p>
+      <h1 class="title">CADDi Factory Lifecycle OS</h1>
+      <p class="thesis">「新工場を建てるべきか」の判断から、建てた後 数十年にわたる設備・保全部品の調達まで——CADDiの図面×工程×コストデータを、工場の生涯全体に適用する。</p>
+    </header>
+
+    <!-- STEP 1 -->
+    <section class="step" id="s1">
+      <div class="step-head">
+        <span class="step-num">STEP 1</span>
+        <h2 class="step-title">マクロ課題（PEST / 3C）</h2>
+      </div>
+      <p class="step-method">手法：PEST分析 / 3C分析</p>
+
+      <h3>PEST</h3>
+      <ul class="plain">
+        <li><strong>政治</strong>：米中対立・経済安全保障を背景にしたフレンドショアリング／リショアリング。各国が半導体・EV電池等の新工場誘致に補助金を投じ、製造拠点の地理的再編が政策主導で加速している。</li>
+        <li><strong>経済</strong>：金利上昇局面で「着工〜満稼働までのリードタイム」そのものが投資判断の可否を左右するようになっている。</li>
+        <li><strong>社会</strong>：企画〜立ち上げを一気通貫で経験した熟練プラントエンジニアが高齢化し、知見継承が間に合っていない。</li>
+        <li><strong>技術</strong>：AIによるデータ構造化は実用段階に入った一方、工場建設・運用の現場は依然Excel・紙・勘に依存している。</li>
+      </ul>
+
+      <h3>3C</h3>
+      <ul class="plain">
+        <li><strong>Market</strong>：地政学要因で世界的に新工場需要は増加基調（国内実データ：工場立地件数854件／2024年・前年比+6.9%、敷地面積1,982ha・+28.4%。出典：経済産業省「工場立地動向調査」）。</li>
+        <li><strong>Customer</strong>：多くの製造業本社は「既存工場を活かすべきか、新工場が要るのか」を再現性高く判断する手段を持たない。</li>
+        <li><strong>Company（CADDi）</strong>：図面×工程×コスト（受発注実績）の工場横断データと受発注ネットワークを持つが、歩留まり・品質データまでは持っていない。現状は「部品の発注」止まりで「工場そのものの意思決定・生涯運用」には踏み込んでいない。</li>
+      </ul>
+
+      <div class="callout verdict-good">
+        <span class="label">課題の全体像</span>
+        工場に関する意思決定（作る／延命する／改善する）が勘と属人化に依存する一方、地政学的な要請で再編の必要性が急増し、意思決定と実行のスピードが追いついていない。
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="step" id="s2">
+      <div class="step-head">
+        <span class="step-num">STEP 2</span>
+        <h2 class="step-title">細分化と定義づけ——「新工場が要る6つの引き金」</h2>
+      </div>
+      <p class="step-method">手法：アセット型分解（人間／道具／データ）</p>
+
+      <p>「工場を作りたい」を漠然と扱うと的が絞れない。核心は<strong>「既存工場に設備を足すだけでは済まない瞬間はいつか」</strong>という一点。洗い出すと、既存工場という"道具（システム・物理環境）"そのものの前提が壊れるケースに集約される。</p>
+
+      <div class="trigger-grid">
+        <div class="trigger-card">
+          <span class="tag">道具の限界</span>
+          <h4>①キャパシティの天井</h4>
+          <p>床面積・搬入動線・電力/空調/圧縮空気/水処理・倉庫が詰まり、設備だけ足しても周辺工程が詰まる。</p>
+        </div>
+        <div class="trigger-card">
+          <span class="tag">プロセスの非連続</span>
+          <h4>②工程がまったく違う新製品</h4>
+          <p>EV電池、半導体クリーンルーム、医薬品、無菌充填、重量物組立——既存ラインの動線・空調・検査設計と根本的に噛み合わない。</p>
+        </div>
+        <div class="trigger-card">
+          <span class="tag">規制の壁</span>
+          <h4>③品質・衛生・規制の非連続</h4>
+          <p>GMP、食品安全、クリーン度、トレーサビリティ、化学プラント安全基準——改修では認証・監査・バリデーションに時間がかかりすぎる。</p>
+        </div>
+        <div class="trigger-card">
+          <span class="tag">立地の失敗</span>
+          <h4>④場所そのものが事業に合わない</h4>
+          <p>顧客近接、現地生産、関税・輸送費、災害分散、人材確保——生産能力があっても立地の失敗は設備更新で解決できない。</p>
+        </div>
+        <div class="trigger-card">
+          <span class="tag">停止できない</span>
+          <h4>⑤既存ラインを止められない</h4>
+          <p>改修に伴う操業停止・供給責任・工事中の品質リスク——別棟で新設し稼働後に移管する方が安全。</p>
+        </div>
+        <div class="trigger-card">
+          <span class="tag">設計思想の刷新</span>
+          <h4>⑥自動化前提での作り直し</h4>
+          <p>AGV/AMR、ロボット前提レイアウト、MES/ERP全連携——人手作業前提の古い動線に後付けすると配線・スペース・動線がボトルネックになる。</p>
+        </div>
+      </div>
+
+      <div class="callout verdict-good">
+        <span class="label">この分解が効く理由</span>
+        6つの引き金は互いに独立した発生源を持つため、「新設が必要になる瞬間」は年1回のレアイベントではなく、企業の数だけ・製品の数だけ・規制改定の数だけ分散して発生する構造的事象だと言える。
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="step" id="s3">
+      <div class="step-head">
+        <span class="step-num">STEP 3</span>
+        <h2 class="step-title">ペルソナの特定</h2>
+      </div>
+      <p class="step-method">手法：JTBD理論 / ペルソナ分析</p>
+
+      <h3>組織プロファイル</h3>
+      <p>グローバルに生産拠点を持つ、または持とうとしている中堅〜大手製造業。サプライチェーン上は一次〜二次サプライヤー、または最終製品メーカーの生産子会社。上記6つの引き金のいずれかに直面している。</p>
+
+      <h3>個人プロファイル</h3>
+      <p>生産技術本部／グローバル生産戦略部門の責任者。経営層からは「地政学リスクに対応し早く拠点を再編しろ」と急かされ、現場からは「人もデータも足りない」と突き上げられる板挟み。<strong>「新設すべきか、既存工場でどうにかすべきか」の一次判断を自分の勘だけで下さなければならない</strong>プレッシャーの中心にいる。</p>
+
+      <h3>奇妙な代替行動（現物証拠）</h3>
+      <ul class="plain">
+        <li>過去の自社工場実績をExcelで手打ち管理し、新設要否の判断材料にする</li>
+        <li>高額なプラントコンサルに数ヶ月〜1年かけて基本計画書（新設 or 増改築の可否含む）を作らせる</li>
+        <li>建設会社を集めてコンペを開き、調整だけで半年かける</li>
+        <li>現地の人材紹介会社に個別に問い合わせて賃金相場を聞き取る</li>
+        <li>ベテラン技術者が退職前に知見をExcel・紙にまとめようとして間に合わない</li>
+      </ul>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="step" id="s4">
+      <div class="step-head">
+        <span class="step-num">STEP 4</span>
+        <h2 class="step-title">ボトルネック評価（4観点）</h2>
+      </div>
+      <p class="step-method">手法：ボトルネック評価の4観点</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>観点</th><th>評価</th></tr></thead>
+          <tbody>
+            <tr><td>①ペインの総量</td><td>新設要否の誤判断・立ち上げ遅延は1ヶ月あたり数千万〜数億円の機会損失。経営層への説明責任のプレッシャーも重い。</td></tr>
+            <tr><td>②顕在性</td><td>痛みの自覚はあるが「工場建設とはそういうもの」と諦めがち＝"解決できる"という認識を作る啓蒙が必要。</td></tr>
+            <tr><td>③実現可能性</td><td>受発注データを工程・設備レベルまで構造化すればマッチング・ベンチマークは可能。ただし工場全体の物理設計（配管・ユーティリティ・建築規制）まではCADDiの現有データで踏み込みすぎない設計にする必要がある。</td></tr>
+            <tr><td>④競合の不作為</td><td>Siemens/Dassault/AVEVA/Autodesk/Bentley/Hexagon等はデジタルツイン・PLMを提供するが自社1社分のデータに閉じている。EPC・プラントコンサルは施工能力・知見はあるが構造化データ資産がない。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout verdict-warn">
+        <span class="label">正直な留保</span>
+        「複数社の実績データを横断保有できる立場が空白」という主張は、顧客が歩留まり・原価という競争力の源泉を自発的に共有する前提に立っている。この前提は崩れやすい。詳細はSTEP6。
+      </div>
+    </section>
+
+    <!-- STEP 5 -->
+    <section class="step" id="s5">
+      <div class="step-head">
+        <span class="step-num">STEP 5</span>
+        <h2 class="step-title">解決策の立案</h2>
+      </div>
+      <p class="step-method">手法：デザイン思考 / ポジショニングマップ</p>
+
+      <h3>①技術・プロダクト</h3>
+      <ul class="plain">
+        <li><strong>新設要否診断</strong>：6つの引き金に基づき、既存工場の増強で足りるか新設が要るかを一次診断</li>
+        <li><strong>設計テンプレートのレコメンド</strong>：実証済みの工程・設備・レイアウトの組み合わせを提示</li>
+        <li><strong>建設マッチング</strong>：実績データに基づき建設会社/EPCを直接マッチング（コンペ代替）</li>
+        <li><strong>生涯設備・保全部品の調達</strong>：稼働後、設備・治具・消耗部品の調達を継続的に担う（下記STEP7で収益の主エンジンに位置づけ）</li>
+      </ul>
+
+      <h3>②業務プロセス・オペレーション</h3>
+      <ul class="plain">
+        <li>コンペ運営の代行（相見積もり不要化）</li>
+        <li>設計変更（ECN）の製造影響評価を自動化</li>
+      </ul>
+
+      <h3>③お金の仕組み</h3>
+      <ul class="plain">
+        <li>新設要否診断・設計テンプレートは無料〜低額（導入障壁を下げる入口）</li>
+        <li>建設マッチングは成果報酬（成立時手数料）</li>
+        <li>生涯設備・保全部品調達は取引額（GMV）に対するテイクレート——ここが継続収益の本体</li>
+      </ul>
+
+      <h3>ユーザーはどう使うか（ジャーニー）</h3>
+      <ol class="journey">
+        <li><span class="moment">診断</span><p>生産技術責任者が「新製品でクリーンルームが要る」（引き金②）とCADDiに入力。既存工場改修 vs 新設のコスト・期間比較が即座に返る。</p></li>
+        <li><span class="moment">設計</span><p>新設が妥当と判断された場合、類似工程を持つ工場の実績データから設計テンプレートを選び、自社要件に合わせて調整する。</p></li>
+        <li><span class="moment">建設</span><p>テンプレートに対応した施工実績を持つ建設会社/EPCがマッチングされ、コンペを開かず契約に進む。</p></li>
+        <li><span class="moment">稼働後</span><p>稼働開始後は、設備の摩耗予測・消耗部品の自動調達、歩留まり・原価のベンチマークが常時走り続ける。新設プロジェクトは終わるが、CADDiとの取引はここから本格化する。</p></li>
+      </ol>
+    </section>
+
+    <!-- STEP 6 -->
+    <section class="step" id="s6">
+      <div class="step-head">
+        <span class="step-num">STEP 6</span>
+        <h2 class="step-title">自社アセットの適合性と致命的リスク</h2>
+      </div>
+      <p class="step-method">手法：VRIO分析 / イノベーションの4大リスク</p>
+
+      <h3>VRIO</h3>
+      <ul class="plain">
+        <li><strong>Value</strong>：複数工場の実績データに基づく意思決定支援は、意思決定の質とスピードを両方引き上げる。</li>
+        <li><strong>Rarity</strong>：業界横断の実績データを持つプレイヤーは希少。ただし「新設・建設」ドメインではCADDiはまだこのデータを持っていない——<strong>持っているのは稼働後の設備・部品・調達データ</strong>。</li>
+        <li><strong>Imitability</strong>：稼働後の調達データは取引実績の蓄積が必要で模倣は容易でない。一方、新設・建設支援だけを切り出すと模倣困難性の主張はまだ弱い。</li>
+        <li><strong>Organization</strong>：Drawerの図面解析・AI人材、受発注ネットワークの営業基盤を転用できるのは「モノの図面と発注」が絡む部分（設計テンプレート・生涯調達）に限られる。建設・労働市場という新ドメインは組織能力が未証明。</li>
+      </ul>
+
+      <h3>4大リスクと対策</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>リスク</th><th>対策</th></tr></thead>
+          <tbody>
+            <tr><td>①価値リスク（顧客が買わない）</td><td>診断・設計テンプレートは無料〜低額で導入障壁を下げ、収益は稼働後の継続取引に寄せる。</td></tr>
+            <tr><td>②操作リスク（現場が使えない）</td><td>既存業務フロー（コンペ運営・月次報告）に溶け込むUIにする。</td></tr>
+            <tr><td>③実現リスク（技術的に作れない）</td><td>工場全体の物理設計自動生成は当面見送り、「診断＋マッチング＋稼働後調達」に絞る。</td></tr>
+            <tr><td>④事業継続リスク（法的責任・労働集約化）</td><td>建設・設計は「情報提供・マッチング」に徹し、最終契約は顧客と施工会社間で締結させる。ただしこれは訴訟耐性の完全な担保にはならない——数十億円規模の投資判断に影響する推奨を出す以上、免責条項だけに頼らず、賠償上限を明記した契約設計と保険（PL保険相当）の付保を前提にする。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout verdict-warn">
+        <span class="label">最大の未解決論点（データのコールドスタート）</span>
+        「複数社の実績データを横断比較する」という価値提案は、そもそもCADDiが歩留まり・品質データを持っていない（保有するのは受発注実績＝原価・工程・リードタイムまで）という前提の上に立っている。歩留まりまで見せる比較をしようとすれば、顧客が競争力の源泉である品質データを自発的に渡す必要があり、これは崩れやすい。<strong>解決策は、データを"聞く"のではなく、CADDiとの取引（設備・部品の受発注）から自然に観測できる原価・工程・リードタイムの範囲に限定すること。</strong>つまりベンチマーク・診断機能は単独では成立せず、稼働後の調達取引が先に存在することで初めて成立する「後乗り」の価値だと認識する。
+      </div>
+    </section>
+
+    <!-- STEP 7 -->
+    <section class="step" id="s7">
+      <div class="step-head">
+        <span class="step-num">STEP 7</span>
+        <h2 class="step-title">収益性とスケールの評価</h2>
+      </div>
+      <p class="step-method">手法：TAM/SAM/SOM / T2D3成長モデル</p>
+
+      <h3>実データに基づくTAM</h3>
+      <ul class="plain">
+        <li>国内新設工場立地：854件・敷地面積1,982ha（2024年、経済産業省「工場立地動向調査」）</li>
+        <li>日本は世界の製造業付加価値の約7〜8%と仮定 → グローバル新設件数は年間約1.1万件と推定</li>
+        <li>1件あたり建設投資額を平均¥25億円と仮定 → <strong>グローバル年間新設投資 ≈ ¥27.5兆円</strong></li>
+      </ul>
+
+      <h3>SAM／SOM（10年目、整合性を取り直した試算）</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>収益レイヤー</th><th>前提</th><th class="num">年間売上</th></tr></thead>
+          <tbody>
+            <tr><td>SAM（母数）</td><td>グローバル1.1万件のうち、中堅〜大手・案件規模1億円以上・主要関係国 ≈ 3,300件/年（¥8.3兆円）</td><td class="num">—</td></tr>
+            <tr><td>建設マッチング手数料</td><td>SAMの5%（≈165件）、契約額の2%</td><td class="num">≈¥83億円</td></tr>
+            <tr><td>設計テンプレートSaaS</td><td>マッチング利用企業の8割が併用、平均契約単価¥3,000万円</td><td class="num">≈¥40〜50億円</td></tr>
+            <tr><td>生涯設備・保全部品調達（GMV型）</td><td>稼働後10〜20年続く消耗部品・設備更新の調達をCADDiの受発注網で担う。既存Drawer事業と同じ手数料構造で、対象を製品部品から設備・治具・保全部品に拡張</td><td class="num">≈¥1,000億円超（要検証）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout verdict-warn">
+        <span class="label">正直な結論</span>
+        「新設マッチング＋設計SaaS」だけでは<strong>合計¥130億円前後</strong>にしかならず、2000億円には遠く届かない。この2つは<strong>収益の柱ではなく、顧客との最初の接点（リード獲得）と位置づけるべき</strong>。2000億円の射程に入れるための本体は、稼働後10〜20年続く<strong>「設備・治具・保全部品の生涯調達」</strong>——これはCADDiの既存事業（図面×発注先マッチング）を、対象を「製品部品」から「工場設備・保全部品」へ拡張するだけの、最も飛躍の少ない打ち手であり、かつ新設・既存を問わずすべての工場に売れるため母数がひとつ桁で大きい。
+      </div>
+
+      <h3>T2D3的ロードマップ</h3>
+      <ul class="plain">
+        <li><strong>Year1-2</strong>：日本国内で新設要否診断＋建設マッチングをβ提供し、顧客接点を作る（数十社）</li>
+        <li><strong>Year3-4</strong>：接点を得た顧客の稼働後、設備・保全部品調達をクロスセル。既存Drawer顧客への逆展開も並行</li>
+        <li><strong>Year5-6</strong>：東南アジア・インドへ展開（次の修羅場：現地部品サプライヤー網の構築）</li>
+        <li><strong>Year7-8</strong>：北米・欧州展開（次の修羅場：Siemens/AVEVA等との直接競合、現地規制対応）</li>
+        <li><strong>Year9-10</strong>：生涯調達のGMVが積み上がり、2000億円の射程圏内へ</li>
+      </ul>
+    </section>
+
+    <footer class="colophon">CADDi インターン検討資料 ドラフト v3 ／ 原田</footer>
+  </div>
+</div>
