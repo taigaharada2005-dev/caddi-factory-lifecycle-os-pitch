@@ -325,6 +325,47 @@
   .reqsum { border: 1px solid var(--line); border-radius: 6px; background: var(--panel-deep); padding: 10px 12px; font-size: 0.76rem; color: var(--steel-deep); line-height: 1.65; }
   .reqsum b { color: var(--ink); font-weight: 600; }
 
+  /* ---- 立地・調達 最適化（SCM） ---- */
+  .scmbody { display: grid; grid-template-columns: 1.6fr 1fr; gap: 0; }
+  @media (max-width: 760px) { .scmbody { grid-template-columns: 1fr; } }
+  .scmmap { background: var(--panel); border-right: 1px solid var(--line); }
+  @media (max-width: 760px) { .scmmap { border-right: none; border-bottom: 1px solid var(--line); } }
+  .scmmap svg { display: block; width: 100%; height: auto; }
+  .scmside { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .scmrank { display: flex; flex-direction: column; gap: 8px; }
+  .rankrow { display: grid; grid-template-columns: 1.3em 1fr 3.6em; gap: 8px; align-items: center; font-size: 0.82rem; }
+  .rankrow .rk { font-family: var(--font-mono); color: var(--steel); }
+  .rankrow .nm { display: flex; flex-direction: column; gap: 3px; }
+  .rankrow.best .nm .t { font-weight: 700; }
+  .rankrow .nm .t { line-height: 1.2; }
+  .rankrow .bar { height: 5px; border-radius: 3px; background: var(--panel-deep); overflow: hidden; }
+  .rankrow .bar > i { display: block; height: 100%; background: var(--steel); border-radius: 3px; }
+  .rankrow.best .bar > i { background: var(--accent); }
+  .rankrow .sc { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--steel-deep); text-align: right; }
+  .scmwhy { font-size: 0.76rem; color: var(--steel-deep); line-height: 1.6; border-left: 3px solid var(--accent); padding-left: 10px; }
+  .scmwhy b { color: var(--ink); }
+  .vendors h4 { margin: 4px 0 6px; font-size: 0.78rem; font-family: var(--font-display); font-weight: 700; }
+  .vendors h4 .c { font-family: var(--font-mono); font-size: 0.66rem; color: var(--accent); margin-right: 6px; }
+  .vrow { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 0.8rem; align-items: baseline; }
+  .vrow .vm { color: var(--steel); font-family: var(--font-mono); font-size: 0.7rem; }
+  .vrow .vfit { font-family: var(--font-mono); font-size: 0.74rem; color: var(--good); font-variant-numeric: tabular-nums; }
+  .scm-sea { fill: rgba(120,162,196,0.20); }
+  .scm-land { fill: var(--panel-deep); stroke: var(--steel); stroke-width: 1; }
+  .scm-grid { stroke: rgba(120,162,196,0.28); stroke-width: 0.6; }
+  .scm-dot { fill: var(--steel-deep); }
+  .scm-best { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+  .scm-pulse { fill: var(--accent); }
+  .scm-lbl { fill: var(--ink); font-size: 11px; }
+  .scm-lbl.b { font-weight: 700; }
+  .scm-badgebox { fill: var(--accent); }
+  .scm-badge { fill: #fff; font-family: var(--font-mono); font-size: 9px; }
+  .scm-sup { fill: var(--good); }
+  .scm-port { fill: var(--clean); }
+  .scm-conn { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.55; }
+  .scm-legtext { fill: var(--steel); font-family: var(--font-mono); font-size: 10px; }
+  .scm-compass line, .scm-compass polyline { stroke: var(--ink); stroke-width: 1.2; fill: none; }
+  .scm-compass text { fill: var(--ink); font-family: var(--font-mono); font-size: 10px; }
+
   footer.foot {
     margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line);
     font-family: var(--font-mono); font-size: 0.7rem; color: var(--steel);
@@ -499,6 +540,21 @@
           <div class="provenance"><span class="dotg"></span><span>CADDiの受発注実績（図面×工程×コスト）から観測できる範囲で算出。歩留まりは含みません。</span></div>
         </div>
       </div>
+
+      <div class="floorcard">
+        <div class="fhead">
+          <span class="ttl">立地・調達 最適化（SCM）</span>
+          <span class="hint3d" id="scmRegionLbl">—</span>
+        </div>
+        <div class="scmbody">
+          <div class="scmmap" id="scmMap"></div>
+          <aside class="scmside">
+            <div class="scmrank" id="scmRank"></div>
+            <div class="scmwhy" id="scmWhy"></div>
+            <div class="vendors" id="vendors"></div>
+          </aside>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -561,6 +617,36 @@
   var SHIFT_FACTOR = { "2": 1.0, "3": 0.97, auto: 0.93 };
   var CERT_LABEL = { iso9001: "ISO 9001", iatf: "IATF 16949", gmp: "GMP", haccp: "HACCP", clean: "クリーンルーム" };
   var BUDGET_LABEL = { s: "〜30億", m: "30〜100億", l: "100〜500億", xl: "500億〜" };
+
+  // SCM立地評価（f: サプライヤー近接/物流港湾/人材/コスト/災害地政学耐性 各0-10）
+  var SCM_WEIGHTS = { sup: 0.26, log: 0.20, lab: 0.20, cost: 0.19, risk: 0.15 };
+  var SCM_FACTORLBL = { sup: "サプライヤー近接", log: "物流・港湾", lab: "人材確保", cost: "用地・電力コスト", risk: "災害・地政学耐性" };
+  var SITE_DATA = {
+    domestic: { region: "国内（日本）", sites: [
+      { nm: "北関東（茨城）", x: 64, y: 42, f: { sup: 9, log: 9, lab: 7, cost: 7, risk: 8 } },
+      { nm: "東北（宮城）",   x: 70, y: 26, f: { sup: 6, log: 6, lab: 8, cost: 9, risk: 6 } },
+      { nm: "中部（愛知）",   x: 48, y: 56, f: { sup: 9, log: 8, lab: 6, cost: 5, risk: 7 } },
+      { nm: "九州（熊本）",   x: 22, y: 70, f: { sup: 7, log: 6, lab: 8, cost: 8, risk: 5 } }
+    ]},
+    sea: { region: "東南アジア", sites: [
+      { nm: "タイ東部 EEC",   x: 42, y: 42, f: { sup: 8, log: 9, lab: 8, cost: 8, risk: 7 } },
+      { nm: "ベトナム北部",   x: 56, y: 26, f: { sup: 7, log: 7, lab: 9, cost: 9, risk: 6 } },
+      { nm: "西ジャワ",       x: 58, y: 72, f: { sup: 6, log: 7, lab: 8, cost: 8, risk: 5 } },
+      { nm: "ペナン",         x: 34, y: 54, f: { sup: 8, log: 8, lab: 7, cost: 7, risk: 8 } }
+    ]},
+    india: { region: "インド", sites: [
+      { nm: "チェンナイ",     x: 58, y: 72, f: { sup: 8, log: 8, lab: 8, cost: 8, risk: 7 } },
+      { nm: "プネー",         x: 40, y: 52, f: { sup: 9, log: 7, lab: 7, cost: 7, risk: 8 } },
+      { nm: "グジャラート",   x: 30, y: 36, f: { sup: 7, log: 8, lab: 6, cost: 9, risk: 7 } },
+      { nm: "ベンガルール",   x: 48, y: 68, f: { sup: 8, log: 6, lab: 9, cost: 6, risk: 8 } }
+    ]},
+    na: { region: "北米", sites: [
+      { nm: "メキシコ・バヒオ", x: 40, y: 74, f: { sup: 8, log: 8, lab: 9, cost: 9, risk: 6 } },
+      { nm: "テキサス",       x: 46, y: 58, f: { sup: 8, log: 8, lab: 7, cost: 7, risk: 7 } },
+      { nm: "オハイオ",       x: 64, y: 40, f: { sup: 9, log: 8, lab: 6, cost: 6, risk: 8 } },
+      { nm: "ジョージア",     x: 66, y: 56, f: { sup: 8, log: 7, lab: 7, cost: 7, risk: 7 } }
+    ]}
+  };
 
   // ---- matching ----
   function score(t) {
@@ -774,6 +860,90 @@
     host.innerHTML = s.join('');
   }
 
+  // ---- 立地・調達 最適化（SCM） ----
+  function renderScm() {
+    var host = document.getElementById("scmMap"); if (!host) return;
+    var data = SITE_DATA[state.location] || SITE_DATA.domestic;
+    var lbl = document.getElementById("scmRegionLbl"); if (lbl) lbl.textContent = data.region + " ／ SCM最適立地";
+    var scored = data.sites.map(function (s) {
+      var tot = 0; for (var k in SCM_WEIGHTS) tot += s.f[k] * SCM_WEIGHTS[k];
+      return { nm: s.nm, x: s.x, y: s.y, f: s.f, total: tot };
+    }).sort(function (a, b) { return b.total - a.total; });
+    var best = scored[0];
+    var W = 460, H = 300;
+    function mx(x) { return 40 + x / 100 * 380; }
+    function my(y) { return 24 + y / 100 * 250; }
+    var g = [];
+    g.push('<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" class="bp-svg" role="img" aria-label="SCM最適立地マップ">');
+    g.push('<rect class="scm-sea" x="0" y="0" width="' + W + '" height="' + H + '"/>');
+    g.push('<g class="scm-grid">');
+    for (var gx = 0; gx <= W; gx += 40) g.push('<line x1="' + gx + '" y1="0" x2="' + gx + '" y2="' + H + '"/>');
+    for (var gy = 0; gy <= H; gy += 40) g.push('<line x1="0" y1="' + gy + '" x2="' + W + '" y2="' + gy + '"/>');
+    g.push('</g>');
+    g.push('<polygon class="scm-land" points="55,72 150,44 250,52 350,66 420,112 405,206 320,256 200,262 110,240 60,158"/>');
+    var bx = mx(best.x), by = my(best.y);
+    var portX = 74, portY = H - 42;
+    g.push('<line class="scm-conn" x1="' + bx + '" y1="' + by + '" x2="' + portX + '" y2="' + portY + '"/>');
+    g.push('<rect class="scm-port" x="' + (portX - 5) + '" y="' + (portY - 5) + '" width="10" height="10"/>');
+    var off = [[36, -22], [-30, 26], [42, 30]];
+    for (var si = 0; si < off.length; si++) {
+      var sxp = Math.max(20, Math.min(W - 20, bx + off[si][0])), syp = Math.max(20, Math.min(H - 20, by + off[si][1]));
+      g.push('<line class="scm-conn" x1="' + bx + '" y1="' + by + '" x2="' + sxp + '" y2="' + syp + '"/>');
+      g.push('<circle class="scm-sup" cx="' + sxp + '" cy="' + syp + '" r="3.5"/>');
+    }
+    for (var i = 0; i < scored.length; i++) {
+      var c = scored[i], cxp = mx(c.x), cyp = my(c.y), isBest = (c === best);
+      if (isBest) {
+        g.push('<circle class="scm-pulse" cx="' + cxp + '" cy="' + cyp + '" r="10"><animate attributeName="r" values="10;22;10" dur="2.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.5;0;0.5" dur="2.6s" repeatCount="indefinite"/></circle>');
+        g.push('<circle class="scm-best" cx="' + cxp + '" cy="' + cyp + '" r="8"/>');
+        g.push('<rect class="scm-badgebox" x="' + (cxp + 11) + '" y="' + (cyp - 23) + '" width="34" height="15" rx="3"/>');
+        g.push('<text class="scm-badge" x="' + (cxp + 28) + '" y="' + (cyp - 12) + '" text-anchor="middle">最適</text>');
+        g.push('<text class="scm-lbl b" x="' + (cxp + 11) + '" y="' + (cyp + 4) + '">' + c.nm + '</text>');
+      } else {
+        g.push('<circle class="scm-dot" cx="' + cxp + '" cy="' + cyp + '" r="' + (3 + c.total * 0.35) + '"/>');
+        g.push('<text class="scm-lbl" x="' + (cxp + 8) + '" y="' + (cyp + 4) + '">' + c.nm + '</text>');
+      }
+    }
+    g.push('<circle class="scm-best" cx="24" cy="' + (H - 46) + '" r="5"/><text class="scm-legtext" x="34" y="' + (H - 42) + '">最適地</text>');
+    g.push('<circle class="scm-sup" cx="24" cy="' + (H - 30) + '" r="4"/><text class="scm-legtext" x="34" y="' + (H - 26) + '">サプライヤー</text>');
+    g.push('<rect class="scm-port" x="20" y="' + (H - 18) + '" width="8" height="8"/><text class="scm-legtext" x="34" y="' + (H - 11) + '">港湾ハブ</text>');
+    g.push('<g class="scm-compass" transform="translate(' + (W - 26) + ',30)"><line x1="0" y1="12" x2="0" y2="-10"/><polyline points="-4,-4 0,-12 4,-4"/><text x="0" y="24" text-anchor="middle">N</text></g>');
+    g.push('</svg>');
+    host.innerHTML = g.join('');
+
+    var rl = [];
+    for (var r = 0; r < scored.length; r++) {
+      var c2 = scored[r], pct = Math.round(c2.total * 10);
+      rl.push('<div class="rankrow' + (c2 === best ? ' best' : '') + '"><span class="rk">' + (r + 1) + '</span>'
+        + '<span class="nm"><span class="t">' + c2.nm + '</span><span class="bar"><i style="width:' + pct + '%"></i></span></span>'
+        + '<span class="sc">' + pct + '</span></div>');
+    }
+    document.getElementById("scmRank").innerHTML = rl.join('');
+
+    var topf = Object.keys(best.f).sort(function (a, b) { return best.f[b] - best.f[a]; }).slice(0, 3);
+    var whyparts = topf.map(function (k) { return SCM_FACTORLBL[k] + '（' + best.f[k] + '/10）'; });
+    document.getElementById("scmWhy").innerHTML = '<b>' + best.nm + '</b> をSCM最適地として推奨。強み：' + whyparts.join('・') + '。CADDiネットワーク上の近接サプライヤーと港湾ハブへのアクセスを加味。';
+  }
+
+  function renderVendors() {
+    var host = document.getElementById("vendors"); if (!host) return;
+    var t = view.tmpl; if (!t) return;
+    var locF = LOC_FACTOR[state.location] || 1;
+    var cap = Math.round(t.capexOku * locF), lo = Math.round(cap * 0.45), hi = Math.round(cap * 0.62);
+    var jobsA = 20 + (t.networkFactories % 30), jobsB = 12 + (t.id.charCodeAt(3) % 20);
+    var h = [];
+    h.push('<h4><span class="c">EPC</span>建設・EPC パートナー候補</h4>');
+    h.push('<div class="vrow"><span><b>総合建設・EPC A社</b><br><span class="vm">プラント建設 実績' + jobsA + '件 ／ 納期 ' + t.buildMonths + 'ヶ月</span></span><span class="vfit">適合 94%<br>¥' + lo + '〜' + hi + '億</span></div>');
+    h.push('<div class="vrow"><span><b>プラントEPC B社</b><br><span class="vm">同業種 実績' + jobsB + '件 ／ 納期 ' + (t.buildMonths + 2) + 'ヶ月</span></span><span class="vfit">適合 88%<br>¥' + Math.round(lo * 1.05) + '〜' + Math.round(hi * 1.08) + '億</span></div>');
+    h.push('<h4 style="margin-top:12px"><span class="c">EQ</span>主要設備メーカー候補</h4>');
+    var eq = t.keyEquipment.slice(0, 4);
+    for (var i = 0; i < eq.length; i++) {
+      var fit = 96 - i * 4 - (eq[i].length % 3), mo = 4 + (i % 3);
+      h.push('<div class="vrow"><span><b>' + eq[i] + '</b><br><span class="vm">設備メーカー' + String.fromCharCode(88 + i) + ' ／ 納期 ' + mo + 'ヶ月</span></span><span class="vfit">適合 ' + fit + '%</span></div>');
+    }
+    host.innerHTML = h.join('');
+  }
+
   // ---- drag reorder (中間工程のみ) ----
   var dragFrom = null;
   function wireDrag() {
@@ -842,6 +1012,8 @@
     animateNum(document.getElementById("matchVal"), r.pct, 700);
     document.getElementById("matchBar").style.width = r.pct + "%";
     updateReqSum();
+    renderScm();
+    renderVendors();
   }
 
   function updateReqSum() {
