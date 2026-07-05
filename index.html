@@ -1,4 +1,4 @@
-<title>CADDi Factory Lifecycle OS — チーム発表原稿</title>
+<title>CaddiPlant — チーム発表原稿</title>
 <style>
   :root {
     --ink: #14181c;
@@ -131,6 +131,30 @@
     color: var(--steel-deep);
     max-width: 42em;
     margin: 0;
+  }
+
+  /* ---------------- pain → cause → solution ---------------- */
+  .logicflow {
+    display: flex; flex-direction: column; align-items: flex-start;
+    margin: 0 0 clamp(28px, 4vw, 44px);
+  }
+  .logicflow .lf {
+    border: 1px solid var(--line-strong); border-radius: 8px;
+    padding: 15px 20px; background: var(--panel); max-width: 52em;
+    font-size: 0.96rem; line-height: 1.65;
+  }
+  .logicflow .lf .lk {
+    display: block; font-family: var(--font-mono); font-size: 0.7rem;
+    letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 5px;
+  }
+  .logicflow .conn { width: 2px; height: 20px; background: var(--line-strong); margin-left: 28px; }
+  .logicflow .lf.sol { border-color: var(--steel-deep); background: var(--steel-deep); color: var(--paper); }
+  .logicflow .lf.sol .lk { color: #e6a973; }
+  .logicflow .lf.sol strong { color: #fff; }
+  .logicflow .solnote {
+    display: block; margin-top: 8px; font-size: 0.8rem; line-height: 1.5;
+    color: rgba(255,255,255,0.72); font-family: var(--font-body);
   }
 
   /* ---------------- sections ---------------- */
@@ -298,9 +322,27 @@
   <div>
     <header class="cover">
       <p class="eyebrow">CADDi Internship Proposal — Draft for Team Review</p>
-      <h1 class="title">CADDi Factory Lifecycle OS</h1>
-      <p class="thesis">「新工場を建てるべきか」の判断から、建てた後 数十年にわたる設備・保全部品の調達まで——CADDiの図面×工程×コストデータを、工場の生涯全体に適用する。</p>
+      <h1 class="title">CaddiPlant</h1>
+      <p class="thesis">プラントエンジニアの属人的な工場設計・設備選定・調達・試運転の知見をソフトウェア化する。「既存工場を探して妥協する」から「最適な工場を数日〜数週間で生成する」へ、製造業の意思決定を変える。</p>
     </header>
+
+    <div class="logicflow">
+      <div class="lf">
+        <span class="lk">Pain</span>
+        工場を作るには時間がかかる。だからといって既存工場で妥協すると、設備・レイアウト・人材・品質のどこかにしわ寄せが出る。
+      </div>
+      <div class="conn"></div>
+      <div class="lf">
+        <span class="lk">原因</span>
+        工場設計・設備選定・調達・施工・試運転の判断が、一部のプラントエンジニアの<strong>経験（属人知）</strong>に依存しており、再現も高速化もできない。
+      </div>
+      <div class="conn"></div>
+      <div class="lf sol">
+        <span class="lk">Solution ── CaddiPlant</span>
+        その知見をソフトウェア化する。製品図面・生産量・品質条件を入力すると、必要工程／設備構成／レイアウト／ユーティリティ／調達先／建設スケジュール／試運転計画を自動生成。プラントエンジニアが数ヶ月かける初期設計を、数日〜数週間で出力する。<br>
+        <span class="solnote">※ 法規制対応・安全・最終承認・施工責任は人／専門業者に残す。CaddiPlantが担うのは「設計・判断・調整」のソフトウェア化。</span>
+      </div>
+    </div>
 
     <!-- STEP 1 -->
     <section class="step" id="s1">
@@ -546,6 +588,6 @@
       </ul>
     </section>
 
-    <footer class="colophon">CADDi インターン検討資料 ドラフト v3 ／ 原田</footer>
+    <footer class="colophon">CaddiPlant ／ CADDi インターン検討資料 ドラフト v4 ／ 原田</footer>
   </div>
 </div>

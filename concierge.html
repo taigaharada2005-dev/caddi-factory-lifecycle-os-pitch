@@ -1,4 +1,4 @@
-<title>CADDi 工場プランコンシェルジュ — Prototype</title>
+<title>CaddiPlant — 工場プランコンシェルジュ Prototype</title>
 <style>
   :root {
     --ink: #14181c;
@@ -76,7 +76,15 @@
   }
   h1 {
     font-family: var(--font-display); font-weight: 700; margin: 0;
-    font-size: clamp(1.35rem, 2.6vw, 1.9rem); letter-spacing: -0.01em;
+    font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.015em;
+  }
+  h1 .sub {
+    font-family: var(--font-mono); font-weight: 400; font-size: 0.5em;
+    color: var(--steel); letter-spacing: 0.02em; margin-left: 10px;
+  }
+  .tagline {
+    margin: 2px 0 0; font-size: 0.92rem; color: var(--steel-deep);
+    max-width: 34em; line-height: 1.5;
   }
   .ref {
     font-size: 0.76rem; color: var(--steel); font-family: var(--font-mono);
@@ -260,7 +268,8 @@
   <header class="top">
     <div class="brand">
       <p class="eyebrow">CADDi Internship — Interactive Prototype</p>
-      <h1>工場プランコンシェルジュ</h1>
+      <h1>CaddiPlant<span class="sub">工場プランコンシェルジュ</span></h1>
+      <p class="tagline">プラントエンジニアの属人的な設計・判断・調整を<strong>ソフトウェア化</strong>し、要件を入れるだけで最適な工場設計を即時に生成する。</p>
     </div>
     <p class="ref">参考：燈 × 大和ハウス「AIプランコンシェルジュ」<br>——2,000超の住宅プランから即時提案。その工場版。</p>
   </header>
@@ -349,7 +358,7 @@
   </div>
 
   <footer class="foot">
-    <span>CADDi 工場プランコンシェルジュ ／ プロトタイプ v1 ・ 原田</span>
+    <span>CaddiPlant ／ 工場プランコンシェルジュ プロトタイプ v1 ・ 原田</span>
     <span class="disc">※ 本モックのデータはデモ用のサンプルです。実データではありません。</span>
   </footer>
 </div>
