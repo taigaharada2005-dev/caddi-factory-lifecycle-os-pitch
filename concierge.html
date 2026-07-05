@@ -238,6 +238,17 @@
   .bp-title-line { stroke: var(--line-strong); stroke-width: 1; }
   .bp-tk { fill: var(--steel); font-family: var(--font-mono); font-size: 11px; dominant-baseline: middle; }
   .bp-tv { fill: var(--ink); font-size: 12px; dominant-baseline: middle; }
+  .bp-title-main { fill: var(--ink); font-size: 15px; font-weight: 700; }
+  .bp-site { fill: none; stroke: var(--steel); stroke-width: 1.4; stroke-dasharray: 9 5; }
+  .bp-open { fill: none; stroke: var(--steel); stroke-width: 1; stroke-dasharray: 5 4; }
+  .bp-yard { stroke: var(--steel); stroke-width: 1; }
+  .bp-aux { fill: var(--panel-deep); stroke: var(--ink); stroke-width: 1.2; }
+  .bp-aux-lbl { fill: var(--steel-deep); font-size: 11px; }
+  .bp-stall { stroke: var(--steel); stroke-width: 1; }
+  .bp-road { stroke: rgba(120,132,140,0.4); stroke-width: 8; }
+  .bp-legtitle { fill: var(--ink); font-size: 12px; font-weight: 700; }
+  .bp-legnum { fill: var(--accent); font-family: var(--font-mono); font-size: 11px; }
+  .bp-legtext { fill: var(--ink); font-size: 12px; }
 
   /* ---- spec panel ---- */
   .specwrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
@@ -563,18 +574,40 @@
     var host = document.getElementById("blueprint");
     if (!host) return;
     var n = order.length;
-    var VW = 980, VH = 470;
-    var bx = 54, by = 40, bw = VW - 54 - 24, bh = 326, wall = 9;
+    var VW = 1060, VH = 540;
+    var RX = VW - 16 - 224;            // 右パネル開始X
+    var bayM = 8, depthM = 24, totalM = n * bayM, floorM = totalM * depthM, siteM = Math.round(floorM * 2.4);
+
+    var bx = 176, by = 172, bh = 196, wall = 8;
+    var bw = RX - bx - 150; if (bw > 560) bw = 560;
     var innerX = bx + wall, innerY = by + wall, innerW = bw - wall * 2, innerH = bh - wall * 2;
-    var gap = 6, roomW = (innerW - gap * (n - 1)) / n, cy = innerY + innerH * 0.5;
-    var bayM = 8, depthM = 24, totalM = n * bayM, areaM = totalM * depthM;
+    var gap = 5, roomW = (innerW - gap * (n - 1)) / n, cy = innerY + innerH / 2;
+    var sTop = 56, sBot = VH - 26, sL = 34, yW = 74;
+
     var s = [];
-    s.push('<svg viewBox="0 0 ' + VW + ' ' + VH + '" xmlns="http://www.w3.org/2000/svg" class="bp-svg" role="img" aria-label="工場俯瞰設計図面">');
+    s.push('<svg viewBox="0 0 ' + VW + ' ' + VH + '" xmlns="http://www.w3.org/2000/svg" class="bp-svg" role="img" aria-label="工場配置図">');
+    s.push('<defs><pattern id="bphatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(120,132,140,0.5)" stroke-width="1"/></pattern></defs>');
     s.push('<rect class="bp-border" x="10" y="10" width="' + (VW - 20) + '" height="' + (VH - 20) + '"/>');
-    s.push('<g class="bp-grid">');
-    for (var gx = bx; gx <= bx + bw; gx += 26) s.push('<line x1="' + gx + '" y1="' + by + '" x2="' + gx + '" y2="' + (by + bh) + '"/>');
-    for (var gy = by; gy <= by + bh; gy += 26) s.push('<line x1="' + bx + '" y1="' + gy + '" x2="' + (bx + bw) + '" y2="' + gy + '"/>');
-    s.push('</g>');
+    s.push('<text class="bp-title-main" x="' + (RX / 2 + 10) + '" y="40" text-anchor="middle">' + t.name + '　新工場 配置図</text>');
+
+    // 敷地境界（不整形）
+    var poly = [[sL + 20, sTop + 16], [RX - 40, sTop], [RX - 8, 128], [RX - 16, sBot], [sL + 34, sBot]];
+    s.push('<polygon class="bp-site" points="' + poly.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '"/>');
+
+    // 資材ヤード
+    s.push('<rect class="bp-open" x="' + bx + '" y="' + (by - 68) + '" width="' + bw + '" height="50"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx + 8) + '" y="' + (by - 68 + 20) + '">資材ヤード</text>');
+
+    // トラックヤード（ハッチ）
+    var yH = bh - 36;
+    s.push('<rect class="bp-yard" x="' + (bx - yW - 12) + '" y="' + (by + 18) + '" width="' + yW + '" height="' + yH + '" fill="url(#bphatch)"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx - yW - 6) + '" y="' + (by + 34) + '">受入</text>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx - yW - 6) + '" y="' + (by + 47) + '" style="font-size:8px">TRUCK</text>');
+    s.push('<rect class="bp-yard" x="' + (bx + bw + 12) + '" y="' + (by + 18) + '" width="' + yW + '" height="' + yH + '" fill="url(#bphatch)"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx + bw + 18) + '" y="' + (by + 34) + '">出荷</text>');
+    s.push('<text class="bp-aux-lbl" x="' + (bx + bw + 18) + '" y="' + (by + 47) + '" style="font-size:8px">TRUCK</text>');
+
+    // 主建屋
     s.push('<rect class="bp-wall" x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '"/>');
     s.push('<rect class="bp-floor" x="' + innerX + '" y="' + innerY + '" width="' + innerW + '" height="' + innerH + '"/>');
     for (var i = 0; i < n; i++) {
@@ -582,46 +615,67 @@
       var clean = t.cleanZones.indexOf(name) >= 0;
       var rx = innerX + i * (roomW + gap), cx = rx + roomW / 2;
       s.push('<rect class="bp-room' + (clean ? ' clean' : '') + '" x="' + rx + '" y="' + innerY + '" width="' + roomW + '" height="' + innerH + '"/>');
-      s.push('<text class="bp-code" x="' + (rx + 6) + '" y="' + (innerY + 16) + '">Z' + ((i + 1) < 10 ? '0' : '') + (i + 1) + '</text>');
-      s.push('<text class="bp-label" x="' + cx + '" y="' + cy + '" text-anchor="middle">' + name + '</text>');
-      if (clean) s.push('<text class="bp-clean" x="' + cx + '" y="' + (cy + 18) + '" text-anchor="middle">CLEAN</text>');
+      s.push('<text class="bp-code" x="' + (rx + 5) + '" y="' + (innerY + 14) + '">' + (i + 1) + '</text>');
+      s.push('<text class="bp-label" x="' + cx + '" y="' + cy + '" text-anchor="middle" style="font-size:12px">' + name + '</text>');
+      if (clean) s.push('<text class="bp-clean" x="' + cx + '" y="' + (cy + 15) + '" text-anchor="middle">CLEAN</text>');
     }
     for (var j = 0; j < n - 1; j++) {
-      var ax = innerX + j * (roomW + gap) + roomW;
-      var nx2 = innerX + (j + 1) * (roomW + gap);
-      s.push(bpArrow(ax + 1, cy - innerH * 0.3, nx2 - 1));
+      var ax = innerX + j * (roomW + gap) + roomW, nx2 = innerX + (j + 1) * (roomW + gap);
+      s.push(bpArrow(ax + 1, cy - innerH * 0.32, nx2 - 1));
     }
-    s.push('<rect class="bp-door" x="' + (bx - 3) + '" y="' + (cy - 22) + '" width="6" height="44"/>');
-    s.push('<text class="bp-doorlbl" x="' + (bx - 8) + '" y="' + (cy + 40) + '" text-anchor="end">受入</text>');
-    s.push('<rect class="bp-door" x="' + (bx + bw - 3) + '" y="' + (cy - 22) + '" width="6" height="44"/>');
-    s.push('<text class="bp-doorlbl" x="' + (bx + bw + 8) + '" y="' + (cy + 40) + '">出荷</text>');
-    var ty = 26;
-    s.push('<g class="bp-dim"><line x1="' + bx + '" y1="' + ty + '" x2="' + (bx + bw) + '" y2="' + ty + '"/>'
-      + '<line x1="' + bx + '" y1="' + (ty - 4) + '" x2="' + bx + '" y2="' + (ty + 4) + '"/>'
-      + '<line x1="' + (bx + bw) + '" y1="' + (ty - 4) + '" x2="' + (bx + bw) + '" y2="' + (ty + 4) + '"/></g>');
-    s.push('<text class="bp-dimtext" x="' + (bx + bw / 2) + '" y="' + (ty - 6) + '" text-anchor="middle">' + totalM + ' m</text>');
-    var lx = 34;
-    s.push('<g class="bp-dim"><line x1="' + lx + '" y1="' + by + '" x2="' + lx + '" y2="' + (by + bh) + '"/>'
-      + '<line x1="' + (lx - 4) + '" y1="' + by + '" x2="' + (lx + 4) + '" y2="' + by + '"/>'
-      + '<line x1="' + (lx - 4) + '" y1="' + (by + bh) + '" x2="' + (lx + 4) + '" y2="' + (by + bh) + '"/></g>');
-    s.push('<text class="bp-dimtext" x="' + lx + '" y="' + (by + bh / 2) + '" text-anchor="middle" transform="rotate(-90 ' + lx + ' ' + (by + bh / 2) + ')">' + depthM + ' m</text>');
-    var nx = VW - 40, ny = 34;
-    s.push('<g class="bp-north"><line x1="' + nx + '" y1="' + (ny + 14) + '" x2="' + nx + '" y2="' + (ny - 10) + '"/>'
-      + '<polyline points="' + (nx - 5) + ',' + (ny - 4) + ' ' + nx + ',' + (ny - 12) + ' ' + (nx + 5) + ',' + (ny - 4) + '"/>'
-      + '<text x="' + nx + '" y="' + (ny + 26) + '" text-anchor="middle">N</text></g>');
-    var TW = 300, TH = 84, TX = VW - 24 - TW, TY = VH - 14 - TH, rowH = TH / 3, colX = TX + 96;
-    s.push('<g class="bp-title"><rect class="bp-title-box" x="' + TX + '" y="' + TY + '" width="' + TW + '" height="' + TH + '"/>');
-    for (var r = 1; r < 3; r++) s.push('<line class="bp-title-line" x1="' + TX + '" y1="' + (TY + rowH * r) + '" x2="' + (TX + TW) + '" y2="' + (TY + rowH * r) + '"/>');
+    s.push('<rect class="bp-door" x="' + (bx - 3) + '" y="' + (cy - 18) + '" width="6" height="36"/>');
+    s.push('<rect class="bp-door" x="' + (bx + bw - 3) + '" y="' + (cy - 18) + '" width="6" height="36"/>');
+
+    // 事務所・駐車場・進入路
+    var oX = bx - yW - 12, oY = sBot - 66;
+    s.push('<rect class="bp-aux" x="' + oX + '" y="' + oY + '" width="104" height="50"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (oX + 52) + '" y="' + (oY + 30) + '" text-anchor="middle">事務所</text>');
+    var pX = oX + 124, pY = sBot - 58, pW = 176, pH = 40;
+    s.push('<rect x="' + pX + '" y="' + pY + '" width="' + pW + '" height="' + pH + '" style="fill:none;stroke:var(--steel);stroke-width:1"/>');
+    for (var kk = 1; kk < 9; kk++) s.push('<line class="bp-stall" x1="' + (pX + kk * pW / 9) + '" y1="' + pY + '" x2="' + (pX + kk * pW / 9) + '" y2="' + (pY + pH) + '"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (pX + 4) + '" y="' + (pY - 4) + '">駐車場</text>');
+    s.push('<line class="bp-road" x1="' + (sL + 34) + '" y1="' + (sBot - 2) + '" x2="' + (RX - 12) + '" y2="' + (sBot - 2) + '"/>');
+    s.push('<text class="bp-aux-lbl" x="' + (pX + pW + 14) + '" y="' + (sBot - 10) + '">進入路</text>');
+
+    // 建屋幅 寸法
+    var ty = by - 8;
+    s.push('<g class="bp-dim"><line x1="' + bx + '" y1="' + ty + '" x2="' + (bx + bw) + '" y2="' + ty + '"/><line x1="' + bx + '" y1="' + (ty - 4) + '" x2="' + bx + '" y2="' + (ty + 4) + '"/><line x1="' + (bx + bw) + '" y1="' + (ty - 4) + '" x2="' + (bx + bw) + '" y2="' + (ty + 4) + '"/></g>');
+    s.push('<text class="bp-dimtext" x="' + (bx + bw / 2) + '" y="' + (ty - 5) + '" text-anchor="middle">' + totalM + ' m</text>');
+
+    // 方位記号
+    var nx = RX - 30, ny = sBot - 46;
+    s.push('<g class="bp-north"><line x1="' + nx + '" y1="' + (ny + 16) + '" x2="' + nx + '" y2="' + (ny - 12) + '"/><polyline points="' + (nx - 5) + ',' + (ny - 5) + ' ' + nx + ',' + (ny - 14) + ' ' + (nx + 5) + ',' + (ny - 5) + '"/><text x="' + nx + '" y="' + (ny + 30) + '" text-anchor="middle">N</text></g>');
+
+    // 右パネル：表題欄
+    var PX = RX + 16, PW = VW - 16 - PX, TY = 20, rowH = 22;
+    var rows = [
+      ['図番', t.id], ['名称', t.name],
+      ['敷地面積', siteM.toLocaleString('ja-JP') + ' m²'],
+      ['建築面積', floorM.toLocaleString('ja-JP') + ' m²'],
+      ['延床面積', floorM.toLocaleString('ja-JP') + ' m²'],
+      ['縮尺', '1:300'], ['工期', t.buildMonths + ' ヶ月'], ['作図', 'CaddiPlant AI']
+    ];
+    var TH = rowH * rows.length, colX = PX + 76;
+    s.push('<rect class="bp-title-box" x="' + PX + '" y="' + TY + '" width="' + PW + '" height="' + TH + '"/>');
     s.push('<line class="bp-title-line" x1="' + colX + '" y1="' + TY + '" x2="' + colX + '" y2="' + (TY + TH) + '"/>');
-    function trow(rr, k, v) {
-      var yy = TY + rowH * rr - rowH / 2;
-      s.push('<text class="bp-tk" x="' + (TX + 10) + '" y="' + yy + '">' + k + '</text>');
-      s.push('<text class="bp-tv" x="' + (colX + 10) + '" y="' + yy + '">' + v + '</text>');
+    for (var r = 0; r < rows.length; r++) {
+      var yy = TY + rowH * r;
+      if (r > 0) s.push('<line class="bp-title-line" x1="' + PX + '" y1="' + yy + '" x2="' + (PX + PW) + '" y2="' + yy + '"/>');
+      s.push('<text class="bp-tk" x="' + (PX + 8) + '" y="' + (yy + rowH / 2) + '">' + rows[r][0] + '</text>');
+      s.push('<text class="bp-tv" x="' + (colX + 8) + '" y="' + (yy + rowH / 2) + '" style="font-size:11px">' + rows[r][1] + '</text>');
     }
-    trow(1, '図番 / 名称', t.id + '  ' + t.name);
-    trow(2, '縮尺 / 延床', '1:200   ' + areaM.toLocaleString('ja-JP') + ' m²');
-    trow(3, '作図 / 工期', 'CaddiPlant AI   ' + t.buildMonths + 'ヶ月');
-    s.push('</g></svg>');
+
+    // 右パネル：凡例
+    var LY = TY + TH + 22;
+    s.push('<text class="bp-legtitle" x="' + PX + '" y="' + LY + '">凡例（工程）</text>');
+    var ly = LY + 17;
+    for (var m = 0; m < n; m++) {
+      s.push('<text class="bp-legnum" x="' + PX + '" y="' + ly + '">' + (m + 1) + '.</text>');
+      s.push('<text class="bp-legtext" x="' + (PX + 22) + '" y="' + ly + '">' + t.processFlow[order[m]] + '</text>');
+      ly += 15;
+    }
+
+    s.push('</svg>');
     host.innerHTML = s.join('');
   }
 
@@ -861,6 +915,15 @@
       conv.position.set(0, 0.2, 0);
       equipGroup.add(conv);
 
+      // 黄色レーンライン（通路）
+      var laneMat = new THREE.MeshStandardMaterial({ color: 0xf0c24a, roughness: 0.5 });
+      [-1.8, 1.8].forEach(function (z) {
+        var lane = new THREE.Mesh(new THREE.BoxGeometry(span + 2.4, 0.05, 0.14), laneMat);
+        lane.position.set(0, 0.12, z);
+        equipGroup.add(lane);
+      });
+      var zoneCols = [0x9ac16b, 0x6bb3d4, 0xe0a35a, 0xc98fb0, 0x7fb0a0, 0xd0906a];
+
       // 設備ブロック
       for (var i = 0; i < n; i++) {
         var name = t.processFlow[order[i]];
@@ -875,6 +938,25 @@
         var x = -half + i * pitch;
         box.position.set(x, hgt / 2 + 0.32, 0);
         equipGroup.add(box);
+
+        // 色分けされた工程ゾーン床
+        var tile = new THREE.Mesh(
+          new THREE.PlaneGeometry(pitch - 0.5, 7.4),
+          new THREE.MeshStandardMaterial({ color: zoneCols[order[i] % zoneCols.length], roughness: 0.9, transparent: true, opacity: 0.5 })
+        );
+        tile.rotation.x = -Math.PI / 2;
+        tile.position.set(x, 0.04, 0);
+        equipGroup.add(tile);
+
+        // 構造柱（色分け）
+        if (i < n - 1) {
+          var pillar = new THREE.Mesh(
+            new THREE.BoxGeometry(0.35, 5, 0.35),
+            new THREE.MeshStandardMaterial({ color: zoneCols[i % zoneCols.length], roughness: 0.55 })
+          );
+          pillar.position.set(x + pitch / 2, 2.5, 4.1);
+          equipGroup.add(pillar);
+        }
 
         // クリーンゾーンは天面をうっすら光らせる
         if (isClean) {
