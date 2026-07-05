@@ -300,6 +300,31 @@
   }
   .provenance .dotg { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-top: 6px; }
 
+  /* ---- AIヒアリング chat ---- */
+  .chatcard { border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--panel); display: flex; flex-direction: column; }
+  .chatcard .chead { padding: 10px 14px; background: var(--steel-deep); color: var(--paper); display: flex; flex-direction: column; gap: 2px; }
+  .chatcard .chead .t { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; }
+  .chatcard .chead .s { font-size: 0.66rem; color: rgba(255,255,255,0.72); font-family: var(--font-mono); }
+  .chatlog { padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; }
+  .msg { max-width: 90%; padding: 8px 11px; border-radius: 11px; line-height: 1.5; font-size: 0.83rem; }
+  .msg.ai { align-self: flex-start; background: var(--panel-deep); border: 1px solid var(--line); border-bottom-left-radius: 3px; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 3px; }
+  .msg .pick { display: block; margin-top: 5px; font-family: var(--font-mono); font-size: 0.68rem; color: var(--accent-deep); }
+  .chatsug { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; background: var(--panel); }
+  .chatsug button { border: 1px solid var(--line-strong); background: var(--paper); color: var(--steel-deep); border-radius: 100px; padding: 4px 10px; font-size: 0.71rem; cursor: pointer; }
+  .chatsug button:hover { border-color: var(--accent); color: var(--ink); }
+  .chatform { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--panel-deep); }
+  .chatform input { flex: 1; min-width: 0; border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 10px; font-size: 0.83rem; font-family: inherit; background: var(--paper); color: var(--ink); }
+  .chatform button { border: none; background: var(--accent); color: #fff; border-radius: 6px; padding: 0 14px; font-size: 0.82rem; cursor: pointer; }
+  .chatnote { font-size: 0.64rem; color: var(--steel); font-family: var(--font-mono); padding: 8px 12px; margin: 0; background: var(--panel-deep); border-top: 1px solid var(--line); }
+
+  .certs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .certs button { border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 10px; font-size: 0.78rem; cursor: pointer; }
+  .certs button:hover { border-color: var(--clean); }
+  .certs button[aria-pressed="true"] { background: var(--clean); border-color: var(--clean); color: #fff; }
+  .reqsum { border: 1px solid var(--line); border-radius: 6px; background: var(--panel-deep); padding: 10px 12px; font-size: 0.76rem; color: var(--steel-deep); line-height: 1.65; }
+  .reqsum b { color: var(--ink); font-weight: 600; }
+
   footer.foot {
     margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line);
     font-family: var(--font-mono); font-size: 0.7rem; color: var(--steel);
@@ -322,6 +347,21 @@
 
     <!-- CONTROLS -->
     <section class="controls" aria-label="生産要件の入力">
+
+      <div class="chatcard">
+        <div class="chead">
+          <span class="t">AIヒアリング</span>
+          <span class="s">要望を自然文で話すと要件に自動反映</span>
+        </div>
+        <div class="chatlog" id="chatLog"></div>
+        <div class="chatsug" id="chatSug"></div>
+        <form class="chatform" id="chatForm">
+          <input id="chatInput" autocomplete="off" placeholder="例：EV電池を月10万個、クリーンルームで海外に…" />
+          <button type="submit">送信</button>
+        </form>
+        <p class="chatnote">※ デモ用モック。実装時はサーバ経由でClaude API（claude-opus-4-8）が自然文→要件を抽出。</p>
+      </div>
+
       <div class="field">
         <label class="cap"><span class="idx">01</span> 何を作りますか</label>
         <div class="seg" id="segProduct"></div>
@@ -355,7 +395,52 @@
           <option value="nonstop">⑤ 既存ラインを止められない</option>
           <option value="automation">⑥ 自動化前提で作り直したい</option>
         </select>
-        <p class="hint">要件を変えると、右の工場レイアウトと試算が即座に更新されます。中間工程のブロックはドラッグで入れ替え可能。逆流が起きると動線効率が下がり、矢印が赤くなります。</p>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">05</span> 立地</label>
+        <div class="seg" id="segLoc" style="grid-template-columns:1fr 1fr">
+          <button data-loc="domestic" aria-pressed="true">国内<span class="sub">Japan</span></button>
+          <button data-loc="sea" aria-pressed="false">東南アジア<span class="sub">SEA</span></button>
+          <button data-loc="india" aria-pressed="false">インド<span class="sub">India</span></button>
+          <button data-loc="na" aria-pressed="false">北米<span class="sub">N.America</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">06</span> 稼働形態</label>
+        <div class="seg three" id="segShift">
+          <button data-shift="2" aria-pressed="true">2交代<span class="sub">2-shift</span></button>
+          <button data-shift="3" aria-pressed="false">3交代<span class="sub">3-shift</span></button>
+          <button data-shift="auto" aria-pressed="false">24h無人<span class="sub">lights-out</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">07</span> 必要認証・基準</label>
+        <div class="certs" id="certChips">
+          <button data-cert="iso9001" aria-pressed="false">ISO 9001</button>
+          <button data-cert="iatf" aria-pressed="false">IATF 16949</button>
+          <button data-cert="gmp" aria-pressed="false">GMP</button>
+          <button data-cert="haccp" aria-pressed="false">HACCP</button>
+          <button data-cert="clean" aria-pressed="false">クリーンルーム</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">08</span> 建設予算</label>
+        <select class="trigger-select" id="budget">
+          <option value="s">〜30億円</option>
+          <option value="m">30〜100億円</option>
+          <option value="l">100〜500億円</option>
+          <option value="xl">500億円〜</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="cap"><span class="idx">要件サマリー</span></label>
+        <div class="reqsum" id="reqSum">—</div>
+        <p class="hint">要件を変えると、右のレイアウト・3D・図面・試算が即座に更新されます。中間工程はドラッグで入れ替え可能（逆流で動線効率が下がり矢印が赤に）。</p>
       </div>
     </section>
 
@@ -466,8 +551,16 @@
   var ORDER = { low:0, mid:1, high:2 };
   var TORDER = { "general":0, "precision":1, "ultra-precision":2 };
 
-  var state = { product: "precision-machined", volume: "mid", tol: "general", trigger: "capacity" };
+  var state = { product: "precision-machined", volume: "mid", tol: "general", trigger: "capacity",
+                location: "domestic", shift: "2", budget: "m", certs: [] };
   var view = { templateId: null, tmpl: null, order: [] }; // order = array of optimal-position indices, in displayed sequence
+
+  var LOC_LABEL = { domestic: "国内", sea: "東南アジア", india: "インド", na: "北米" };
+  var LOC_FACTOR = { domestic: 1.0, sea: 0.65, india: 0.6, na: 1.25 };
+  var SHIFT_LABEL = { "2": "2交代", "3": "3交代", auto: "24h無人" };
+  var SHIFT_FACTOR = { "2": 1.0, "3": 0.97, auto: 0.93 };
+  var CERT_LABEL = { iso9001: "ISO 9001", iatf: "IATF 16949", gmp: "GMP", haccp: "HACCP", clean: "クリーンルーム" };
+  var BUDGET_LABEL = { s: "〜30億", m: "30〜100億", l: "100〜500億", xl: "500億〜" };
 
   // ---- matching ----
   function score(t) {
@@ -485,6 +578,8 @@
     else if (state.trigger === "capacity" && t.volumeBand === "high") s += 8;
     else if (state.trigger === "process") s += 6;
     else s += 4;
+    // 認証：クリーンルーム/GMP/HACCP を選ぶとクリーン系テンプレを優先
+    if (hasClean && (state.certs.indexOf("clean") >= 0 || state.certs.indexOf("gmp") >= 0 || state.certs.indexOf("haccp") >= 0)) s += 8;
     return s;
   }
 
@@ -649,7 +744,7 @@
     // 右パネル：表題欄
     var PX = RX + 16, PW = VW - 16 - PX, TY = 20, rowH = 22;
     var rows = [
-      ['図番', t.id], ['名称', t.name],
+      ['図番', t.id], ['名称', t.name], ['立地', LOC_LABEL[state.location]],
       ['敷地面積', siteM.toLocaleString('ja-JP') + ' m²'],
       ['建築面積', floorM.toLocaleString('ja-JP') + ' m²'],
       ['延床面積', floorM.toLocaleString('ja-JP') + ' m²'],
@@ -736,13 +831,28 @@
     renderFlow(t, view.order);
     renderChips(t);
 
-    animateNum(document.getElementById("capex"), t.capexOku, 650);
+    // 立地・稼働形態で試算を補正
+    var locF = LOC_FACTOR[state.location] || 1;
+    var shiftF = SHIFT_FACTOR[state.shift] || 1;
+    animateNum(document.getElementById("capex"), Math.round(t.capexOku * locF), 650);
     animateNum(document.getElementById("months"), t.buildMonths, 650);
-    animateNum(document.getElementById("cost"), t.unitCostIndex, 650);
+    animateNum(document.getElementById("cost"), Math.round(t.unitCostIndex * shiftF), 650);
     animateNum(document.getElementById("ramp"), t.rampUpMonths, 650);
     animateNum(document.getElementById("net"), t.networkFactories, 700);
     animateNum(document.getElementById("matchVal"), r.pct, 700);
     document.getElementById("matchBar").style.width = r.pct + "%";
+    updateReqSum();
+  }
+
+  function updateReqSum() {
+    var prodLabel = "";
+    for (var i = 0; i < PRODUCTS.length; i++) if (PRODUCTS[i].key === state.product) prodLabel = PRODUCTS[i].label;
+    var vol = { low: "少量", mid: "中量", high: "大量" }[state.volume];
+    var tol = { "general": "一般", "precision": "精密", "ultra-precision": "超精密" }[state.tol];
+    var certs = state.certs.length ? state.certs.map(function (c) { return CERT_LABEL[c]; }).join("・") : "—";
+    var el = document.getElementById("reqSum");
+    if (el) el.innerHTML = '<b>' + prodLabel + '</b>／' + vol + '／' + tol + '公差　｜　立地：<b>' + LOC_LABEL[state.location]
+      + '</b>／' + SHIFT_LABEL[state.shift] + '／予算 ' + BUDGET_LABEL[state.budget] + '円<br>認証：' + certs;
   }
 
   // ---- build product segments ----
@@ -772,9 +882,134 @@
   wireSeg("segProduct", "data-p", "product");
   wireSeg("segVolume", "data-v", "volume");
   wireSeg("segTol", "data-t", "tol");
+  wireSeg("segLoc", "data-loc", "location");
+  wireSeg("segShift", "data-shift", "shift");
   document.getElementById("trigger").addEventListener("change", function (e) {
     state.trigger = e.target.value; update();
   });
+  document.getElementById("budget").addEventListener("change", function (e) {
+    state.budget = e.target.value; update();
+  });
+  // 必要認証（複数選択トグル）
+  document.getElementById("certChips").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    var c = b.getAttribute("data-cert");
+    var idx = state.certs.indexOf(c);
+    if (idx >= 0) state.certs.splice(idx, 1); else state.certs.push(c);
+    b.setAttribute("aria-pressed", idx < 0);
+    update();
+  });
+
+  // ---- コントロールを state に同期（チャット反映用） ----
+  function pressOne(id, attr, val) {
+    var seg = document.getElementById(id);
+    if (!seg) return;
+    var btns = seg.querySelectorAll("button");
+    for (var i = 0; i < btns.length; i++) btns[i].setAttribute("aria-pressed", btns[i].getAttribute(attr) === val);
+  }
+  function syncControls() {
+    pressOne("segProduct", "data-p", state.product);
+    pressOne("segVolume", "data-v", state.volume);
+    pressOne("segTol", "data-t", state.tol);
+    pressOne("segLoc", "data-loc", state.location);
+    pressOne("segShift", "data-shift", state.shift);
+    document.getElementById("trigger").value = state.trigger;
+    document.getElementById("budget").value = state.budget;
+    var cb = document.querySelectorAll("#certChips button");
+    for (var j = 0; j < cb.length; j++) cb[j].setAttribute("aria-pressed", state.certs.indexOf(cb[j].getAttribute("data-cert")) >= 0);
+  }
+
+  // ---- AIヒアリング（自然文→要件 抽出：デモ用モック） ----
+  function parseNL(text) {
+    var q = text.toLowerCase(), picks = [];
+    function has() { for (var i = 0; i < arguments.length; i++) if (text.indexOf(arguments[i]) >= 0 || q.indexOf(arguments[i]) >= 0) return true; return false; }
+    // 製品
+    var prod = null;
+    if (has("電池", "バッテリ", "ev", "セル")) prod = "ev-battery-cell";
+    else if (has("実装", "基板", "電子", "smt", "半導体")) prod = "electronic-assembly";
+    else if (has("食品", "飲料", "無菌", "充填")) prod = "food-aseptic";
+    else if (has("板金", "筐体", "レーザ", "溶接")) prod = "sheet-metal";
+    else if (has("樹脂", "成形", "プラスチック", "射出")) prod = "injection-molding";
+    else if (has("切削", "金属", "精密部品", "加工")) prod = "precision-machined";
+    if (prod) { state.product = prod; picks.push("製品"); }
+    // 生産量
+    if (has("大量", "量産", "10万", "100万", "高産")) { state.volume = "high"; picks.push("生産量"); }
+    else if (has("少量", "試作", "多品種")) { state.volume = "low"; picks.push("生産量"); }
+    else if (has("中量", "5万")) { state.volume = "mid"; picks.push("生産量"); }
+    // 公差
+    if (has("超精密", "ミクロン", "μm", "ナノ")) { state.tol = "ultra-precision"; picks.push("公差"); }
+    else if (has("精密", "高精度")) { state.tol = "precision"; picks.push("公差"); }
+    // きっかけ
+    if (has("キャパ", "手狭", "限界", "足りな")) { state.trigger = "capacity"; picks.push("きっかけ"); }
+    else if (has("新製品", "新しい製品")) { state.trigger = "process"; picks.push("きっかけ"); }
+    else if (has("規制", "衛生", "gmp", "haccp")) { state.trigger = "regulation"; picks.push("きっかけ"); }
+    else if (has("止め", "止まら", "供給責任")) { state.trigger = "nonstop"; picks.push("きっかけ"); }
+    else if (has("自動化", "無人", "省人")) { state.trigger = "automation"; picks.push("きっかけ"); }
+    // 立地
+    if (has("東南アジア", "タイ", "ベトナム", "インドネシア")) { state.location = "sea"; picks.push("立地"); }
+    else if (has("インド")) { state.location = "india"; picks.push("立地"); }
+    else if (has("北米", "アメリカ", "米国", "メキシコ")) { state.location = "na"; picks.push("立地"); }
+    else if (has("国内", "日本")) { state.location = "domestic"; picks.push("立地"); }
+    else if (has("海外", "現地生産")) { state.location = "sea"; picks.push("立地"); }
+    // 稼働形態
+    if (has("24", "無人", "ライツアウト", "終日")) { state.shift = "auto"; picks.push("稼働形態"); }
+    else if (has("3交代", "三交代")) { state.shift = "3"; picks.push("稼働形態"); }
+    // 認証
+    var cadd = function (c) { if (state.certs.indexOf(c) < 0) state.certs.push(c); };
+    if (has("クリーンルーム", "クリーン")) { cadd("clean"); picks.push("認証:クリーンルーム"); }
+    if (has("gmp", "医薬")) { cadd("gmp"); picks.push("認証:GMP"); }
+    if (has("haccp")) { cadd("haccp"); picks.push("認証:HACCP"); }
+    if (has("iatf", "車載", "自動車")) { cadd("iatf"); picks.push("認証:IATF"); }
+    if (has("iso")) { cadd("iso9001"); picks.push("認証:ISO9001"); }
+    return picks;
+  }
+
+  var chatLog = document.getElementById("chatLog");
+  function addMsg(who, html) {
+    var d = document.createElement("div");
+    d.className = "msg " + who;
+    d.innerHTML = html;
+    chatLog.appendChild(d);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+  function handleChat(text) {
+    if (!text.trim()) return;
+    addMsg("me", text.replace(/</g, "&lt;"));
+    var picks = parseNL(text);
+    syncControls();
+    update();
+    var t = view.tmpl;
+    if (picks.length) {
+      addMsg("ai", 'ご要望を要件に反映しました。<b>' + t.name + '</b>（' + t.id + '）が最適候補です。'
+        + '<span class="pick">反映：' + picks.join(" / ") + '</span>');
+    } else {
+      addMsg("ai", 'すみません、要件を特定できませんでした。例えば「製品・生産量・立地・認証」を教えてください。');
+    }
+  }
+  document.getElementById("chatForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var inp = document.getElementById("chatInput");
+    handleChat(inp.value);
+    inp.value = "";
+  });
+  // 例文サジェスト
+  var SUG = [
+    "EV電池を月10万個、クリーンルームで海外に",
+    "精密な金属部品を24h無人ラインで",
+    "医薬品をGMP対応で新設したい",
+    "電子基板の実装ラインが手狭になった"
+  ];
+  (function buildSug() {
+    var host = document.getElementById("chatSug"), h = "";
+    for (var i = 0; i < SUG.length; i++) h += '<button type="button">' + SUG[i] + '</button>';
+    host.innerHTML = h;
+    host.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      handleChat(b.textContent);
+    });
+  })();
+  addMsg("ai", 'こんにちは。作りたい工場の要望を自由に話してください。例：「EV電池を月10万個、クリーンルームで東南アジアに」');
 
   // 3Dモジュールが後から読み込まれた時に初期描画できるよう、現在状態を公開
   window.CaddiPlantState = function () {
