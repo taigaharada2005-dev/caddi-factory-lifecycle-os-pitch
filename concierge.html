@@ -366,6 +366,40 @@
   .scm-compass line, .scm-compass polyline { stroke: var(--ink); stroke-width: 1.2; fill: none; }
   .scm-compass text { fill: var(--ink); font-family: var(--font-mono); font-size: 10px; }
 
+  /* ---- インパクト評価 ---- */
+  .impbody { padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 14px; background: var(--panel); }
+  .impwrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; }
+  .imp {
+    border: 1px solid var(--line); border-radius: 7px; background: var(--paper);
+    padding: 11px 13px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .imp .ik { font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--steel); }
+  .imp .iv { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.35rem; font-weight: 700; line-height: 1.15; color: var(--ink); }
+  .imp.good .iv { color: var(--good); }
+  .imp .iu { font-size: 0.66rem; color: var(--steel); }
+  .impchart h4 { margin: 0 0 6px; font-size: 0.8rem; font-family: var(--font-display); font-weight: 700; }
+  .impplot { position: relative; }
+  .impplot svg { display: block; width: 100%; height: auto; }
+  .imp-grid line { stroke: var(--line); stroke-width: 1; }
+  .imp-zero { stroke: var(--line-strong); stroke-width: 1.4; }
+  .imp-axis { fill: var(--steel); font-family: var(--font-mono); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .imp-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .imp-be-dot { fill: var(--good); stroke: var(--panel); stroke-width: 2; }
+  .imp-be-lbl { fill: var(--good); font-size: 11px; font-weight: 600; }
+  .imp-hover-dot { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
+  .imp-cross { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+  .imptip {
+    position: absolute; pointer-events: none; z-index: 5;
+    background: var(--steel-deep); color: var(--paper);
+    border-radius: 5px; padding: 5px 9px; font-size: 0.72rem; font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums; white-space: nowrap; transform: translate(-50%, -130%);
+  }
+  .impspeed {
+    margin: 0; font-size: 0.78rem; color: var(--steel-deep); line-height: 1.6;
+    border-left: 3px solid var(--accent); padding-left: 10px;
+  }
+  .impspeed b { color: var(--accent-deep); }
+
   footer.foot {
     margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line);
     font-family: var(--font-mono); font-size: 0.7rem; color: var(--steel);
@@ -553,6 +587,29 @@
             <div class="scmwhy" id="scmWhy"></div>
             <div class="vendors" id="vendors"></div>
           </aside>
+        </div>
+      </div>
+
+      <div class="floorcard">
+        <div class="fhead">
+          <span class="ttl">インパクト評価</span>
+          <span class="hint3d">この工場を作った場合の影響試算</span>
+        </div>
+        <div class="impbody">
+          <div class="impwrap">
+            <div class="imp"><span class="ik">年間生産能力</span><span class="iv"><span id="impUnits">0</span></span><span class="iu">万個/年</span></div>
+            <div class="imp"><span class="ik">年間売上貢献</span><span class="iv">¥<span id="impRev">0</span></span><span class="iu">億円/年</span></div>
+            <div class="imp good"><span class="ik">投資回収</span><span class="iv"><span id="impPayback">—</span></span><span class="iu">年（累積CFが黒字化）</span></div>
+            <div class="imp"><span class="ik">直接雇用</span><span class="iv"><span id="impJobs">0</span></span><span class="iu">人</span></div>
+            <div class="imp"><span class="ik">地域経済波及</span><span class="iv">¥<span id="impRipple">0</span></span><span class="iu">億円/年（生産誘発）</span></div>
+            <div class="imp"><span class="ik">CO₂排出</span><span class="iv"><span id="impCo2">0</span></span><span class="iu">t-CO₂/年</span></div>
+          </div>
+          <div class="impchart">
+            <h4>累積キャッシュフロー（億円）</h4>
+            <div class="impplot" id="impPlot"></div>
+            <div class="imptip" id="impTip" hidden></div>
+          </div>
+          <p class="impspeed" id="impSpeed">—</p>
         </div>
       </div>
     </section>
@@ -944,6 +1001,148 @@
     host.innerHTML = h.join('');
   }
 
+  // ---- インパクト評価 ----
+  // 製品別の想定：月産（万個, mid基準）と平均単価（円）※デモ用の仮定値
+  var IMPACT_ASSUM = {
+    "precision-machined":  { units: 50,  price: 800 },
+    "ev-battery-cell":     { units: 120, price: 1500 },
+    "electronic-assembly": { units: 200, price: 600 },
+    "food-aseptic":        { units: 900, price: 120 },
+    "sheet-metal":         { units: 30,  price: 1200 },
+    "injection-molding":   { units: 400, price: 60 }
+  };
+  var VOL_MULT = { low: 0.4, mid: 1, high: 2.2 };
+  var GRID_CO2 = { domestic: 1.0, sea: 1.15, india: 1.3, na: 0.9 };
+
+  function computeImpact(t) {
+    var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
+    var locF = LOC_FACTOR[state.location] || 1;
+    var capex = t.capexOku * locF;
+    var unitsMan = a.units * (VOL_MULT[state.volume] || 1);            // 万個/月
+    var revYear = unitsMan * 10000 * 12 * a.price / 1e8;               // 億円/年
+    var margin = 0.11
+      + (state.shift === "auto" ? 0.03 : state.shift === "3" ? 0.01 : 0)
+      + (state.location === "sea" || state.location === "india" ? 0.03 : state.location === "na" ? -0.01 : 0);
+    var cfYear = revYear * margin;                                      // 億円/年（フル稼働時）
+    // 月次で累積CF：着工月に投資、buildMonths後に生産開始、rampUpMonthsかけて漸増
+    var months = 120, cum = -capex, series = [{ m: 0, v: cum }];
+    for (var m = 1; m <= months; m++) {
+      var p = 0;
+      if (m > t.buildMonths) {
+        var since = m - t.buildMonths;
+        p = Math.min(1, since / Math.max(1, t.rampUpMonths));
+      }
+      cum += (cfYear / 12) * p;
+      if (m % 12 === 0) series.push({ m: m, v: cum });
+    }
+    // 黒字化点（月次で補間）
+    var payback = null, c2 = -capex;
+    for (var mm = 1; mm <= months; mm++) {
+      var pp = mm > t.buildMonths ? Math.min(1, (mm - t.buildMonths) / Math.max(1, t.rampUpMonths)) : 0;
+      var step = (cfYear / 12) * pp, prev = c2;
+      c2 += step;
+      if (prev < 0 && c2 >= 0) { payback = (mm - 1 + (0 - prev) / step) / 12; break; }
+    }
+    var n = t.processFlow.length, floorM = n * 8 * 24;
+    var jobs = Math.round(floorM / 60 * (state.shift === "auto" ? 0.35 : state.shift === "3" ? 1.35 : 1));
+    var co2 = Math.round(floorM * 0.12 * (t.cleanZones.length ? 1.6 : 1) * (GRID_CO2[state.location] || 1));
+    return {
+      capex: capex, unitsYear: Math.round(unitsMan * 12), revYear: revYear, cfYear: cfYear,
+      payback: payback, jobs: jobs, ripple: revYear * 1.8, co2: co2, series: series
+    };
+  }
+
+  var impSeries = [];   // ホバー用に保持
+  function renderImpact() {
+    var t = view.tmpl; if (!t || !document.getElementById("impPlot")) return;
+    var im = computeImpact(t);
+    animateNum(document.getElementById("impUnits"), im.unitsYear, 650);
+    animateNum(document.getElementById("impRev"), Math.round(im.revYear), 650);
+    document.getElementById("impPayback").textContent = im.payback ? im.payback.toFixed(1) : "10+";
+    animateNum(document.getElementById("impJobs"), im.jobs, 650);
+    animateNum(document.getElementById("impRipple"), Math.round(im.ripple), 650);
+    animateNum(document.getElementById("impCo2"), im.co2, 650);
+
+    // 爆速の価値：稼働1ヶ月前倒しのCFインパクト
+    var perMonth = im.cfYear / 12;
+    document.getElementById("impSpeed").innerHTML =
+      '<b>爆速の価値：</b>着工〜稼働を1ヶ月短縮するごとに 約<b>¥' + perMonth.toFixed(1) + '億円</b>のキャッシュフローが前倒しになります（フル稼働時月次CF換算）。立ち上げ期間 '
+      + t.buildMonths + 'ヶ月 → 短縮こそが最大のROI改善レバーです。';
+
+    // 累積CFチャート（単一系列ライン・ゼロ基準線・黒字化マーカー）
+    var W = 640, H = 200, padL = 46, padR = 14, padT = 12, padB = 24;
+    var xs = function (yr) { return padL + yr / 10 * (W - padL - padR); };
+    var vals = im.series.map(function (d) { return d.v; });
+    var vmin = Math.min.apply(null, vals.concat([0])), vmax = Math.max.apply(null, vals.concat([0]));
+    var span = (vmax - vmin) || 1; vmin -= span * 0.08; vmax += span * 0.08;
+    var ys = function (v) { return padT + (vmax - v) / (vmax - vmin) * (H - padT - padB); };
+    impSeries = im.series.map(function (d) { return { yr: d.m / 12, v: d.v, x: xs(d.m / 12), y: ys(d.v) }; });
+
+    var s = ['<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="累積キャッシュフロー推移">'];
+    // 罫線（控えめ）＋Y軸ラベル
+    s.push('<g class="imp-grid">');
+    [vmin + span * 0.08, 0, vmax - span * 0.08].forEach(function (gv) {
+      var gy = ys(gv);
+      s.push('<line x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy + '"/>');
+    });
+    s.push('</g>');
+    s.push('<line class="imp-zero" x1="' + padL + '" y1="' + ys(0) + '" x2="' + (W - padR) + '" y2="' + ys(0) + '"/>');
+    s.push('<text class="imp-axis" x="' + (padL - 6) + '" y="' + (ys(0) + 3) + '" text-anchor="end">0</text>');
+    s.push('<text class="imp-axis" x="' + (padL - 6) + '" y="' + (ys(vmax - span * 0.08) + 3) + '" text-anchor="end">+' + Math.round(vmax - span * 0.08) + '</text>');
+    s.push('<text class="imp-axis" x="' + (padL - 6) + '" y="' + (ys(vmin + span * 0.08) + 3) + '" text-anchor="end">' + Math.round(vmin + span * 0.08) + '</text>');
+    for (var yr = 0; yr <= 10; yr += 2) {
+      s.push('<text class="imp-axis" x="' + xs(yr) + '" y="' + (H - 8) + '" text-anchor="middle">' + yr + '年</text>');
+    }
+    // ライン
+    var path = impSeries.map(function (p, i) { return (i ? 'L' : 'M') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join('');
+    s.push('<path class="imp-line" d="' + path + '"/>');
+    // 黒字化マーカー＋直接ラベル
+    if (im.payback) {
+      var bx = xs(im.payback), by = ys(0);
+      s.push('<circle class="imp-be-dot" cx="' + bx + '" cy="' + by + '" r="5"/>');
+      s.push('<text class="imp-be-lbl" x="' + (bx + 8) + '" y="' + (by - 8) + '">回収 ' + im.payback.toFixed(1) + '年</text>');
+    }
+    // ホバー層（後からJSで位置更新）
+    s.push('<line class="imp-cross" id="impCross" x1="0" y1="' + padT + '" x2="0" y2="' + (H - padB) + '" visibility="hidden"/>');
+    s.push('<circle class="imp-hover-dot" id="impDot" r="4.5" visibility="hidden"/>');
+    s.push('</svg>');
+    document.getElementById("impPlot").innerHTML = s.join('');
+    wireImpactHover();
+  }
+
+  function wireImpactHover() {
+    var plot = document.getElementById("impPlot"), tip = document.getElementById("impTip");
+    var svg = plot.querySelector("svg"); if (!svg) return;
+    // 再描画で innerHTML に消された場合は作り直し、位置基準を .impplot（relative）内に置く
+    if (!tip) { tip = document.createElement("div"); tip.className = "imptip"; tip.id = "impTip"; tip.hidden = true; }
+    plot.appendChild(tip);
+    function onMove(e) {
+      var r = svg.getBoundingClientRect();
+      var vx = (e.clientX - r.left) / r.width * 640;
+      var best = null, bd = 1e9;
+      for (var i = 0; i < impSeries.length; i++) {
+        var d = Math.abs(impSeries[i].x - vx);
+        if (d < bd) { bd = d; best = impSeries[i]; }
+      }
+      if (!best) return;
+      var cross = document.getElementById("impCross"), dot = document.getElementById("impDot");
+      cross.setAttribute("x1", best.x); cross.setAttribute("x2", best.x); cross.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", best.x); dot.setAttribute("cy", best.y); dot.setAttribute("visibility", "visible");
+      tip.hidden = false;
+      tip.textContent = best.yr + "年目  " + (best.v >= 0 ? "+" : "") + best.v.toFixed(1) + "億円";
+      tip.style.left = (best.x / 640 * r.width) + "px";
+      tip.style.top = (best.y / 200 * r.height) + "px";
+    }
+    function onLeave() {
+      tip.hidden = true;
+      var cross = document.getElementById("impCross"), dot = document.getElementById("impDot");
+      if (cross) cross.setAttribute("visibility", "hidden");
+      if (dot) dot.setAttribute("visibility", "hidden");
+    }
+    svg.addEventListener("pointermove", onMove);
+    svg.addEventListener("pointerleave", onLeave);
+  }
+
   // ---- drag reorder (中間工程のみ) ----
   var dragFrom = null;
   function wireDrag() {
@@ -1014,6 +1213,7 @@
     updateReqSum();
     renderScm();
     renderVendors();
+    renderImpact();
   }
 
   function updateReqSum() {
