@@ -430,6 +430,8 @@
   .dectable tbody th { font-weight: 400; color: var(--steel-deep); font-family: var(--font-body); }
   .dectable td.best { color: var(--good); font-weight: 700; }
   .dectable td.rec { background: var(--accent-soft); }
+  .decnote { margin: 0; font-size: 0.74rem; line-height: 1.6; color: var(--steel); }
+  .decnote b { color: var(--steel-deep); font-weight: 700; }
   .decassume summary { cursor: pointer; color: var(--accent-deep); font-family: var(--font-mono); font-size: 0.76rem; }
   .decassume-body { margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 6px; font-family: var(--font-mono); font-size: 0.72rem; }
   .decassume-body div { border: 1px solid var(--line); border-radius: 5px; padding: 6px 9px; background: var(--panel-deep); color: var(--steel-deep); }
@@ -725,6 +727,7 @@
         <div class="decbody">
           <div class="decalerts" id="decAlerts"></div>
           <div class="dectable-wrap"><table class="dectable" id="decTable"></table></div>
+          <p class="decnote" id="decNote"></p>
           <details class="decassume">
             <summary>数字の根拠（前提）を表示</summary>
             <div class="decassume-body" id="decAssume"></div>
@@ -822,6 +825,23 @@
   var SHIFT_LABEL = { "2": "2交代", "3": "3交代", auto: "24h無人" };
   var SHIFT_FACTOR = { "2": 1.0, "3": 0.97, auto: 0.93 };
   var CERT_LABEL = { iso9001: "ISO 9001", iatf: "IATF 16949", gmp: "GMP", haccp: "HACCP", clean: "クリーンルーム" };
+  // 立地に加え、認証(クリーン/GMP/HACCP)と公差が建設投資・工期を押し上げる（要件変更が金額に効く）
+  function capexMult() {
+    var prem = 0;
+    if (state.certs.indexOf("clean") >= 0) prem += 0.25;
+    if (state.certs.indexOf("gmp") >= 0) prem += 0.15;
+    if (state.certs.indexOf("haccp") >= 0) prem += 0.08;
+    if (state.tol === "ultra-precision") prem += 0.18; else if (state.tol === "precision") prem += 0.06;
+    return (LOC_FACTOR[state.location] || 1) * (1 + prem);
+  }
+  function buildMonthsAdd() {
+    var a = 0;
+    if (state.certs.indexOf("clean") >= 0) a += 2;
+    if (state.certs.indexOf("gmp") >= 0) a += 1.5;
+    if (state.certs.indexOf("haccp") >= 0) a += 1;
+    if (state.tol === "ultra-precision") a += 1;
+    return Math.round(a * 10) / 10;
+  }
   var BUDGET_LABEL = { s: "〜30億", m: "30〜100億", l: "100〜500億", xl: "500億〜" };
 
   // SCM立地評価（f: サプライヤー近接/物流港湾/人材/コスト/災害地政学耐性 各0-10）
@@ -1220,8 +1240,8 @@
 
   function computeImpact(t) {
     var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
-    var locF = LOC_FACTOR[state.location] || 1;
-    var capex = t.capexOku * locF;
+    var capex = t.capexOku * capexMult();
+    var bm = t.buildMonths + buildMonthsAdd();
     var unitsMan = a.units * (VOL_MULT[state.volume] || 1);            // 万個/月
     var revYear = unitsMan * 10000 * 12 * a.price / 1e8;               // 億円/年
     var margin = 0.11
@@ -1232,8 +1252,8 @@
     var months = 120, cum = -capex, series = [{ m: 0, v: cum }];
     for (var m = 1; m <= months; m++) {
       var p = 0;
-      if (m > t.buildMonths) {
-        var since = m - t.buildMonths;
+      if (m > bm) {
+        var since = m - bm;
         p = Math.min(1, since / Math.max(1, t.rampUpMonths));
       }
       cum += (cfYear / 12) * p;
@@ -1242,7 +1262,7 @@
     // 黒字化点（月次で補間）
     var payback = null, c2 = -capex;
     for (var mm = 1; mm <= months; mm++) {
-      var pp = mm > t.buildMonths ? Math.min(1, (mm - t.buildMonths) / Math.max(1, t.rampUpMonths)) : 0;
+      var pp = mm > bm ? Math.min(1, (mm - bm) / Math.max(1, t.rampUpMonths)) : 0;
       var step = (cfYear / 12) * pp, prev = c2;
       c2 += step;
       if (prev < 0 && c2 >= 0) { payback = (mm - 1 + (0 - prev) / step) / 12; break; }
@@ -1649,7 +1669,7 @@
     return {
       productKey: t.productType, productName: t.name, processFlow: t.processFlow.slice(0),
       targetMonthly: Math.round(a.units * (VOL_MULT[state.volume] || 1) * 10000),
-      capexOku: Math.round(t.capexOku * locF), buildMonths: t.buildMonths, rampUpMonths: t.rampUpMonths,
+      capexOku: Math.round(t.capexOku * capexMult()), buildMonths: t.buildMonths + buildMonthsAdd(), rampUpMonths: t.rampUpMonths,
       baseOperators: Math.round(t.processFlow.length * 8 * 24 / 60),
       budgetCapOku: { s: 30, m: 100, l: 500, xl: 1500 }[state.budget] || 100,
       priority: priority, shift: state.shift,
@@ -1730,6 +1750,11 @@
     th += '</tbody>';
     document.getElementById("decTable").innerHTML = th;
 
+    var PRLABEL = { cost: "コスト最小", time: "立上げ最短", staff: "人員最小", capacity: "生産能力最大" };
+    document.getElementById("decNote").innerHTML =
+      '推奨案＝要件から判定した最重視軸「<b>' + (PRLABEL[dsPriority()] || "コスト最小") + '</b>」に沿った案。低コスト案は建設投資を、高速立上げ案は立上げ期間を最小化します。'
+      + '<b>適合度スコア</b>は各案が自らの重視軸でどれだけ優れるかを表すため、推奨案が必ずしも最高スコアとは限りません（低コスト案の方が高スコアになることもあります）。';
+
     document.getElementById("decAssume").innerHTML =
       '<div>製品単価: ¥' + nf(price) + ' /個（想定）</div>'
       + '<div>想定粗利率: ' + Math.round(margin * 100) + '%</div>'
@@ -1768,8 +1793,8 @@
     var input = {
       productKey: t.productType, productName: t.name,
       processFlow: t.processFlow.slice(0),
-      targetMonthly: target, capexOku: Math.round(t.capexOku * locF),
-      buildMonths: t.buildMonths, rampUpMonths: t.rampUpMonths,
+      targetMonthly: target, capexOku: Math.round(t.capexOku * capexMult()),
+      buildMonths: t.buildMonths + buildMonthsAdd(), rampUpMonths: t.rampUpMonths,
       baseOperators: baseOps, budgetCapOku: budgetCap,
       priority: dsPriority(), shift: state.shift,
       seedStr: [t.id, state.product, state.volume, state.tol, state.trigger, state.location, state.shift, state.budget, state.certs.join(",")].join("|")
@@ -1890,8 +1915,8 @@
     // 立地・稼働形態で試算を補正
     var locF = LOC_FACTOR[state.location] || 1;
     var shiftF = SHIFT_FACTOR[state.shift] || 1;
-    animateNum(document.getElementById("capex"), Math.round(t.capexOku * locF), 650);
-    animateNum(document.getElementById("months"), t.buildMonths, 650);
+    animateNum(document.getElementById("capex"), Math.round(t.capexOku * capexMult()), 650);
+    animateNum(document.getElementById("months"), Math.round(t.buildMonths + buildMonthsAdd()), 650);
     animateNum(document.getElementById("cost"), Math.round(t.unitCostIndex * shiftF), 650);
     animateNum(document.getElementById("ramp"), t.rampUpMonths, 650);
     animateNum(document.getElementById("net"), t.networkFactories, 700);
