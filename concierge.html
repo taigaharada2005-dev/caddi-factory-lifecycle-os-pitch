@@ -1544,7 +1544,7 @@
     }
     var b = r.best;
     rows.push('<div class="dsrow best" style="animation-delay:' + (r.iterations.length * 90) + 'ms"><span class="dsgen">推奨案</span>'
-      + '<span class="dsdesc"><span class="lab">Recommended Plan（' + r.productName + '）</span>'
+      + '<span class="dsdesc"><span class="lab">Recommended Plan（' + t.name + '）</span>'
       + '<span class="met">月産 ' + nf(b.monthlyCap) + ' ・ CAPEX ¥' + f1(b.capexOku) + '億 ・ 立ち上げ ' + f1(b.months) + 'ヶ月 ・ 人員 ' + b.operators + '名 ・ 主ボトルネック ' + b.bottleneck + '</span></span>'
       + '<span class="dsscore">' + f1(b.score) + '</span></div>');
     document.getElementById("dsLog").innerHTML = rows.join('');
