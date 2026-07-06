@@ -413,6 +413,24 @@
   }
   .impspeed b { color: var(--accent-deep); }
 
+  /* ---- フェーズ ステッパー ---- */
+  .stepper { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .stepper button {
+    display: flex; align-items: center; gap: 7px; border: 1px solid var(--line-strong);
+    background: var(--panel); color: var(--steel-deep); border-radius: 100px;
+    padding: 7px 14px; font-size: 0.82rem; cursor: pointer; font-family: inherit;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .stepper button:hover:not(:disabled) { border-color: var(--accent); color: var(--ink); }
+  .stepper button .n { font-family: var(--font-mono); font-size: 0.7rem; color: var(--steel); }
+  .stepper button[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .stepper button[aria-current="true"] .n { color: rgba(255,255,255,0.85); }
+  .stepper button[aria-current="true"] .done { color: rgba(255,255,255,0.9); }
+  .stepper button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .stepper button .done { color: var(--good); font-size: 0.72rem; }
+  .stephint { margin: 0 0 14px; font-size: 0.74rem; color: var(--steel); line-height: 1.5; }
+  .phasecard[hidden] { display: none !important; }
+
   /* ---- 設計探索エンジン ---- */
   .dsbody { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; background: var(--panel); }
   .dsgoal {
@@ -580,6 +598,9 @@
 
     <!-- STAGE -->
     <section class="stage" aria-label="AIの即時提案">
+      <nav class="stepper" id="stepper" aria-label="設計フェーズ"></nav>
+      <p class="stephint" id="stepHint">左で要件を入力し、フェーズを進めて設計を確定していきます。図面を確定すると3Dシミュレーションが解放されます。</p>
+
       <div class="floorcard">
         <div class="fhead">
           <span class="ttl">AI提案レイアウト</span>
@@ -1887,6 +1908,75 @@
   window.CaddiPlantState = function () {
     return { tmpl: view.tmpl, order: view.order.slice() };
   };
+
+  // ==== フェーズ遷移（ステッパー）: 要件は常に左で編集、右は1フェーズずつ表示 ====
+  (function setupPhases() {
+    var stage = document.querySelector(".stage");
+    function cardByTitle(txt) {
+      var els = stage.querySelectorAll(".floorcard .ttl");
+      for (var i = 0; i < els.length; i++) if (els[i].textContent.indexOf(txt) >= 0) return els[i].closest(".floorcard");
+      return null;
+    }
+    var assign = [
+      [cardByTitle("AI提案レイアウト"), "concept"],
+      [cardByTitle("設計探索エンジン"), "concept"],
+      [document.querySelector(".specwrap"), "concept"],
+      [document.querySelector(".detail-grid"), "concept"],
+      [cardByTitle("設計図面"), "blueprint"],
+      [cardByTitle("3D 工場ビュー"), "simulation"],
+      [cardByTitle("立地・調達"), "supply"],
+      [cardByTitle("インパクト評価"), "impact"]
+    ];
+    for (var a = 0; a < assign.length; a++) {
+      if (assign[a][0]) { assign[a][0].classList.add("phasecard"); assign[a][0].setAttribute("data-phase", assign[a][1]); }
+    }
+    var PHASES = [
+      { id: "concept", label: "提案・探索" },
+      { id: "blueprint", label: "設計図面" },
+      { id: "simulation", label: "3Dシミュレーション" },
+      { id: "supply", label: "立地・調達" },
+      { id: "impact", label: "事業性評価" }
+    ];
+    var nav = document.getElementById("stepper"), hint = document.getElementById("stepHint");
+    var seen = { concept: true }, current = "concept";
+    function buildStepper() {
+      var h = "";
+      for (var i = 0; i < PHASES.length; i++) {
+        var ph = PHASES[i], locked = (ph.id === "simulation" && !seen.blueprint);
+        h += '<button data-p="' + ph.id + '"' + (locked ? ' disabled title="設計図面を表示すると解放されます"' : "")
+          + '><span class="n">' + (i + 1) + '</span>' + ph.label
+          + (seen[ph.id] && ph.id !== current ? ' <span class="done">✓</span>' : "")
+          + (locked ? ' <span class="lock">🔒</span>' : "") + '</button>';
+      }
+      nav.innerHTML = h;
+      var btns = nav.querySelectorAll("button");
+      for (var j = 0; j < btns.length; j++) btns[j].setAttribute("aria-current", btns[j].getAttribute("data-p") === current ? "true" : "false");
+    }
+    function setPhase(id) {
+      if (id === "simulation" && !seen.blueprint) { setPhase("blueprint"); return; }
+      current = id; seen[id] = true;
+      var cards = stage.querySelectorAll(".phasecard");
+      for (var i = 0; i < cards.length; i++) cards[i].hidden = (cards[i].getAttribute("data-phase") !== id);
+      buildStepper();
+      if (hint) hint.style.display = (id === "concept") ? "" : "none";
+      if (id === "simulation") {
+        setTimeout(function () {
+          window.dispatchEvent(new Event("resize"));
+          if (window.CaddiPlant3D && view.tmpl) window.CaddiPlant3D.render(view.tmpl, view.order);
+        }, 40);
+      }
+      if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
+    }
+    nav.addEventListener("click", function (e) { var b = e.target.closest("button"); if (b && !b.disabled) setPhase(b.getAttribute("data-p")); });
+    window.addEventListener("hashchange", function () {
+      var id = location.hash.replace("#", "");
+      for (var i = 0; i < PHASES.length; i++) if (PHASES[i].id === id) { setPhase(id); return; }
+    });
+    var initial = location.hash.replace("#", ""), ok = false;
+    for (var p = 0; p < PHASES.length; p++) if (PHASES[p].id === initial && initial !== "simulation") ok = true;
+    setPhase(ok ? initial : "concept");
+    window.CaddiSetPhase = setPhase;
+  })();
 
   update();
 })();
