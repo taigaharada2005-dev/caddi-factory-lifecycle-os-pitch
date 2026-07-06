@@ -413,6 +413,39 @@
   }
   .impspeed b { color: var(--accent-deep); }
 
+  /* ---- 施工・試運転計画 ---- */
+  .bldbody { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--panel); }
+  .bldspeed { font-size: 0.84rem; line-height: 1.6; color: var(--steel-deep); background: var(--accent-soft); border-radius: 6px; padding: 9px 12px; }
+  .bldspeed b { color: var(--accent-deep); }
+  .bldh { margin: 6px 0 2px; font-size: 0.8rem; font-family: var(--font-display); font-weight: 700; color: var(--ink); }
+  .bldgantt-wrap { overflow-x: auto; }
+  .bldgantt { min-width: 560px; }
+  .bldgantt svg { display: block; width: 100%; height: auto; }
+  .bld-grid { stroke: var(--line); stroke-width: 0.6; }
+  .bld-axis { fill: var(--steel); font-family: var(--font-mono); font-size: 9px; }
+  .bld-lbl { fill: var(--steel-deep); font-size: 10.5px; }
+  .bld-lbl.conv { fill: var(--steel); font-style: italic; }
+  .bld-ms-line { stroke: var(--accent); stroke-width: 1.4; stroke-dasharray: 4 3; }
+  .bld-ms { fill: var(--accent-deep); font-family: var(--font-mono); font-size: 10px; font-weight: 700; }
+  .bld-cut { stroke: var(--steel); stroke-width: 1; }
+  .bld-cut-lbl { fill: var(--steel-deep); font-family: var(--font-mono); font-size: 9px; }
+  .bld-bar { }
+  .bld-bar.crit { stroke: var(--ink); stroke-width: 0.6; }
+  .bar-conv { fill: #c9ccd2; }
+  .bar-eng { fill: #8a94a6; }
+  .bar-civil { fill: var(--accent); }
+  .bar-mep { fill: #5b7a99; }
+  .bar-clean { fill: var(--accent-deep); }
+  .bar-equip { fill: #3f8f79; }
+  .bar-commis { fill: #c98a3c; }
+  .bar-ramp { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 2; }
+  .bldcqv { display: flex; flex-direction: column; gap: 4px; }
+  .cqv-item { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: center; font-size: 0.82rem; border-bottom: 1px solid var(--line); padding: 6px 2px; }
+  .cqv-mk { color: var(--accent); font-size: 0.9rem; }
+  .cqv-nm { color: var(--ink); }
+  .cqv-d { font-family: var(--font-mono); font-size: 0.72rem; color: var(--steel-deep); background: var(--panel-deep); border-radius: 4px; padding: 2px 7px; }
+  .cqv-who { font-size: 0.72rem; color: var(--steel); min-width: 74px; text-align: right; }
+
   /* ---- 案比較・意思決定 ---- */
   .decbody { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; background: var(--panel); }
   .decalerts { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -716,6 +749,20 @@
             <div class="scmwhy" id="scmWhy"></div>
             <div class="vendors" id="vendors"></div>
           </aside>
+        </div>
+      </div>
+
+      <div class="floorcard phasecard" data-phase="build">
+        <div class="fhead">
+          <span class="ttl">施工・試運転計画</span>
+          <span class="hint3d">着工から量産開始までのWBS・工程表とCQV（試運転）計画</span>
+        </div>
+        <div class="bldbody">
+          <div class="bldspeed" id="bldSpeed"></div>
+          <h4 class="bldh">施工WBS・工程表（着工〜量産開始）</h4>
+          <div class="bldgantt-wrap"><div class="bldgantt" id="bldGantt"></div></div>
+          <h4 class="bldh">試運転・立上げ計画（CQV）</h4>
+          <div class="bldcqv" id="bldCqv"></div>
         </div>
       </div>
 
@@ -1654,6 +1701,87 @@
       convergence: convergence
     };
   }
+  // ==== 施工・試運転計画（欠落していた生成物をモックで補完） ====
+  function renderBuildPlan(t) {
+    if (!t || !document.getElementById("bldGantt")) return;
+    var hasClean = state.certs.indexOf("clean") >= 0;
+    var needVal = state.certs.indexOf("gmp") >= 0 || state.certs.indexOf("haccp") >= 0 || t.productType === "food-aseptic";
+    var buildMo = t.buildMonths + buildMonthsAdd();
+    var rampMo = t.rampUpMonths;
+    var totalWk = Math.max(6, Math.round(buildMo * 4.33));
+    var rampWk = Math.max(2, Math.round(rampMo * 4.33));
+    var chartWk = totalWk + rampWk;
+    var convWk = Math.round(chartWk * 1.55);
+    var mo = function (wk) { return Math.round(wk / 4.33 * 10) / 10; };
+    var chartMo = mo(chartWk), convMo = mo(convWk), diff = Math.round((convMo - chartMo) * 10) / 10;
+
+    // WBSフェーズ（相対 開始/終了。重なり＝並行施工らしく）
+    var ph = [
+      { nm: "設計・許認可", s: 0.00, e: 0.20, g: "eng" },
+      { nm: "造成・基礎工事", s: 0.14, e: 0.36, g: "civil" },
+      { nm: "躯体・鉄骨建方", s: 0.32, e: 0.58, g: "civil", c: true },
+      { nm: "外装・屋根", s: 0.54, e: 0.70, g: "civil" },
+      { nm: "設備配管・電気(M&E)", s: 0.60, e: 0.84, g: "mep" }
+    ];
+    if (hasClean) ph.push({ nm: "クリーンルーム施工", s: 0.72, e: 0.90, g: "clean", c: true });
+    ph.push({ nm: "生産設備 搬入・据付", s: 0.80, e: 0.95, g: "equip", c: true });
+    ph.push({ nm: "試運転・調整", s: 0.90, e: 1.00, g: "commis", c: true });
+
+    var rows = [{ nm: "従来の一般的な立上げ", sw: 0, dw: convWk, g: "conv" }];
+    for (var i = 0; i < ph.length; i++) rows.push({ nm: ph[i].nm, sw: Math.round(ph[i].s * totalWk), dw: Math.max(1, Math.round((ph[i].e - ph[i].s) * totalWk)), g: ph[i].g, c: ph[i].c });
+    rows.push({ nm: "量産立上げ（歩留まり向上）", sw: totalWk, dw: rampWk, g: "ramp" });
+
+    var W = 760, labelW = 150, padR = 16, padT = 40, rowH = 24, padB = 8, n = rows.length;
+    var Hn = padT + n * rowH + padB, plotW = W - labelW - padR, maxWk = convWk;
+    var wx = function (wk) { return labelW + wk / maxWk * plotW; };
+    var s = ['<svg viewBox="0 0 ' + W + ' ' + Hn + '" xmlns="http://www.w3.org/2000/svg" class="bp-svg" role="img" aria-label="施工工程表">'];
+    // 月グリッド
+    for (var mm = 0; mm <= convMo; mm += 2) {
+      var gx = wx(mm * 4.33);
+      s.push('<line class="bld-grid" x1="' + gx + '" y1="' + (padT - 6) + '" x2="' + gx + '" y2="' + (Hn - padB) + '"/>');
+      s.push('<text class="bld-axis" x="' + gx + '" y="' + (padT - 10) + '" text-anchor="middle">' + mm + 'ヶ月</text>');
+    }
+    // 量産開始マイルストーン
+    var msx = wx(chartWk);
+    s.push('<line class="bld-ms-line" x1="' + msx + '" y1="' + (padT - 6) + '" x2="' + msx + '" y2="' + (Hn - padB) + '"/>');
+    s.push('<text class="bld-ms" x="' + (msx + 4) + '" y="' + (padT - 22) + '">◀ 量産開始 ' + chartMo + 'ヶ月</text>');
+    // 短縮ブラケット
+    s.push('<line class="bld-cut" x1="' + msx + '" y1="' + (padT - 26) + '" x2="' + wx(convWk) + '" y2="' + (padT - 26) + '"/>');
+    s.push('<text class="bld-cut-lbl" x="' + ((msx + wx(convWk)) / 2) + '" y="' + (padT - 29) + '" text-anchor="middle">▼ ' + diff + 'ヶ月短縮</text>');
+    // 行
+    for (var r = 0; r < n; r++) {
+      var y = padT + r * rowH, row = rows[r];
+      s.push('<text class="bld-lbl' + (row.g === "conv" ? " conv" : "") + '" x="' + (labelW - 8) + '" y="' + (y + rowH / 2 + 3) + '" text-anchor="end">' + row.nm + '</text>');
+      var bx = wx(row.sw), bw = Math.max(3, wx(row.sw + row.dw) - wx(row.sw));
+      s.push('<rect class="bld-bar bar-' + row.g + (row.c ? ' crit' : '') + '" x="' + bx + '" y="' + (y + 4) + '" width="' + bw + '" height="' + (rowH - 8) + '" rx="2"/>');
+    }
+    s.push('</svg>');
+    document.getElementById("bldGantt").innerHTML = s.join('');
+
+    // CQV（試運転・立上げ計画）
+    var cqv = [
+      { nm: "単体試運転（設備動作確認）", d: 5, who: "設備メーカー" },
+      { nm: "据付時適格性 IQ", d: 4, who: "自社＋EPC" },
+      { nm: "運転時適格性 OQ", d: 6, who: "自社" },
+      { nm: "性能適格性 PQ（歩留まり確認）", d: 7, who: "自社" }
+    ];
+    if (needVal) cqv.push({ nm: "衛生バリデーション（洗浄・環境モニタ）", d: 6, who: "自社＋QA" });
+    cqv.push({ nm: "通し試運転（全ライン連動）", d: 5, who: "自社" });
+    cqv.push({ nm: "量産移行判定（Go / No-Go）", d: 2, who: "経営＋自社" });
+    var cq = [];
+    for (var q = 0; q < cqv.length; q++) {
+      cq.push('<div class="cqv-item"><span class="cqv-mk">▢</span><span class="cqv-nm">' + cqv[q].nm + '</span><span class="cqv-d">' + cqv[q].d + '日</span><span class="cqv-who">' + cqv[q].who + '</span></div>');
+    }
+    document.getElementById("bldCqv").innerHTML = cq.join('');
+
+    // 短縮＝金 コールアウト
+    var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
+    var revYear = a.units * (VOL_MULT[state.volume] || 1) * 10000 * 12 * a.price / 1e8;
+    var cf = Math.round(revYear * marginOf() / 12 * diff * 10) / 10;
+    document.getElementById("bldSpeed").innerHTML =
+      '<b>従来 ' + convMo + 'ヶ月 → 爆速 ' + chartMo + 'ヶ月</b>（約 ' + diff + 'ヶ月短縮）。標準化した工程・設備テンプレと並行施工で立上げを圧縮。早期量産により累積CFを約 <b>¥' + cf + '億</b> 前倒し。';
+  }
+
   function dsPriority() {
     if (state.budget === "s") return "cost";
     if (state.shift === "auto") return "staff";
@@ -1927,6 +2055,7 @@
     renderVendors();
     renderImpact();
     renderDesignSearch(t);
+    renderBuildPlan(t);
     renderDecision(t);
   }
 
@@ -2128,6 +2257,7 @@
       { id: "blueprint", label: "設計図面" },
       { id: "simulation", label: "3Dシミュレーション" },
       { id: "supply", label: "立地・調達" },
+      { id: "build", label: "施工・試運転" },
       { id: "impact", label: "事業性評価" }
     ];
     var nav = document.getElementById("stepper"), hint = document.getElementById("stepHint");
