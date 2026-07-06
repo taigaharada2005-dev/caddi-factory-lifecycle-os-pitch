@@ -413,6 +413,33 @@
   }
   .impspeed b { color: var(--accent-deep); }
 
+  /* ---- 案比較・意思決定 ---- */
+  .decbody { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; background: var(--panel); }
+  .decalerts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .decalert { display: flex; align-items: center; gap: 6px; border-radius: 6px; padding: 6px 11px; font-size: 0.8rem; border: 1px solid; }
+  .decalert .ic { font-weight: 700; }
+  .decalert.ok { background: var(--good-bg); border-color: var(--good); color: var(--good); }
+  .decalert.warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+  .decalert.bad { background: rgba(178,59,46,0.12); border-color: var(--bad); color: var(--bad); }
+  .dectable-wrap { overflow-x: auto; }
+  .dectable { border-collapse: collapse; width: 100%; min-width: 480px; font-size: 0.84rem; }
+  .dectable th, .dectable td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+  .dectable th:first-child, .dectable td:first-child { text-align: left; font-variant-numeric: normal; }
+  .dectable thead th { font-family: var(--font-display); font-weight: 700; color: var(--ink); border-bottom: 1.5px solid var(--line-strong); }
+  .dectable thead th.rec { color: var(--accent); }
+  .dectable tbody th { font-weight: 400; color: var(--steel-deep); font-family: var(--font-body); }
+  .dectable td.best { color: var(--good); font-weight: 700; }
+  .dectable td.rec { background: var(--accent-soft); }
+  .decassume summary { cursor: pointer; color: var(--accent-deep); font-family: var(--font-mono); font-size: 0.76rem; }
+  .decassume-body { margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 6px; font-family: var(--font-mono); font-size: 0.72rem; }
+  .decassume-body div { border: 1px solid var(--line); border-radius: 5px; padding: 6px 9px; background: var(--panel-deep); color: var(--steel-deep); }
+  .decsens h4 { margin: 0 0 8px; font-size: 0.8rem; font-family: var(--font-display); font-weight: 700; }
+  .sensrow { display: grid; grid-template-columns: 5em 1fr 3.6em; gap: 10px; align-items: center; margin-bottom: 6px; font-size: 0.8rem; color: var(--steel-deep); }
+  .sensrow input[type=range] { width: 100%; accent-color: var(--accent); }
+  .sensrow .sensv { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink); text-align: right; }
+  .sensout { margin-top: 6px; font-size: 0.86rem; color: var(--ink); background: var(--panel-deep); border-radius: 6px; padding: 9px 12px; }
+  .sensout b { color: var(--accent-deep); }
+
   /* ---- フェーズ ステッパー ---- */
   .stepper { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
   .stepper button {
@@ -687,6 +714,28 @@
             <div class="scmwhy" id="scmWhy"></div>
             <div class="vendors" id="vendors"></div>
           </aside>
+        </div>
+      </div>
+
+      <div class="floorcard phasecard" data-phase="impact">
+        <div class="fhead">
+          <span class="ttl">案比較・意思決定</span>
+          <span class="hint3d">目標との適合をチェックし、3案を横並びで比較</span>
+        </div>
+        <div class="decbody">
+          <div class="decalerts" id="decAlerts"></div>
+          <div class="dectable-wrap"><table class="dectable" id="decTable"></table></div>
+          <details class="decassume">
+            <summary>数字の根拠（前提）を表示</summary>
+            <div class="decassume-body" id="decAssume"></div>
+          </details>
+          <div class="decsens">
+            <h4>感度分析（前提を動かすと投資回収が変わる）</h4>
+            <div class="sensrow"><label>製品単価</label><input type="range" id="sensPrice" min="-30" max="30" value="0" step="5"><span class="sensv" id="sensPriceV">±0%</span></div>
+            <div class="sensrow"><label>生産量</label><input type="range" id="sensVol" min="-30" max="30" value="0" step="5"><span class="sensv" id="sensVolV">±0%</span></div>
+            <div class="sensrow"><label>人件費</label><input type="range" id="sensLabor" min="-30" max="30" value="0" step="5"><span class="sensv" id="sensLaborV">±0%</span></div>
+            <div class="sensout" id="sensOut">—</div>
+          </div>
         </div>
       </div>
 
@@ -1591,6 +1640,124 @@
     if (state.volume === "high" || state.trigger === "capacity") return "capacity";
     return "time";
   }
+
+  // ==== 案比較・意思決定（定量判断） ====
+  var decRec = null;
+  function mkDecInput(t, priority) {
+    var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
+    var locF = LOC_FACTOR[state.location] || 1;
+    return {
+      productKey: t.productType, productName: t.name, processFlow: t.processFlow.slice(0),
+      targetMonthly: Math.round(a.units * (VOL_MULT[state.volume] || 1) * 10000),
+      capexOku: Math.round(t.capexOku * locF), buildMonths: t.buildMonths, rampUpMonths: t.rampUpMonths,
+      baseOperators: Math.round(t.processFlow.length * 8 * 24 / 60),
+      budgetCapOku: { s: 30, m: 100, l: 500, xl: 1500 }[state.budget] || 100,
+      priority: priority, shift: state.shift,
+      seedStr: [t.id, state.product, state.volume, state.tol, state.location, state.shift, state.budget, priority].join("|")
+    };
+  }
+  function marginOf() {
+    return 0.11 + (state.shift === "auto" ? 0.03 : state.shift === "3" ? 0.01 : 0)
+      + (state.location === "sea" || state.location === "india" ? 0.03 : state.location === "na" ? -0.01 : 0);
+  }
+  function paybackOf(capexOku, monthlyCap, months, price, margin) {
+    var cfYear = monthlyCap * 12 * price / 1e8 * margin, cum = -capexOku, ramp = 4;
+    if (cfYear <= 0) return null;
+    for (var m = 1; m <= 180; m++) {
+      var p = m > months ? Math.min(1, (m - months) / ramp) : 0, prev = cum;
+      cum += (cfYear / 12) * p;
+      if (prev < 0 && cum >= 0) return (m - 1 + (0 - prev) / ((cfYear / 12) * p)) / 12;
+    }
+    return null;
+  }
+  function renderDecision(t) {
+    if (!t || !document.getElementById("decTable")) return;
+    var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
+    var price = a.price, margin = marginOf(), locF = LOC_FACTOR[state.location] || 1, shiftF = SHIFT_FACTOR[state.shift] || 1;
+    var target = Math.round(a.units * (VOL_MULT[state.volume] || 1) * 10000);
+    var budgetCap = { s: 30, m: 100, l: 500, xl: 1500 }[state.budget] || 100;
+    var area = t.processFlow.length * 8 * 24;
+    function variant(pr) {
+      var r = runDesignSearch(mkDecInput(t, pr)).best;
+      return { cap: r.monthlyCap, capex: r.capexOku, months: r.months, ops: r.operators, score: r.score, pay: paybackOf(r.capexOku, r.monthlyCap, r.months, price, margin), area: area };
+    }
+    var rec = variant(dsPriority()), low = variant("cost"), fast = variant("time");
+    decRec = { v: rec, price: price, margin: margin, target: target };
+
+    var nf = function (x) { return Math.round(x).toLocaleString("ja-JP"); };
+    var f1 = function (x) { return (Math.round(x * 10) / 10).toFixed(1); };
+    var al = [];
+    function alert(cls, ic, msg) { al.push('<span class="decalert ' + cls + '"><span class="ic">' + ic + '</span>' + msg + '</span>'); }
+    if (rec.cap < target * 0.97) alert("bad", "✕", "生産能力 未達 −" + Math.round((1 - rec.cap / target) * 100) + "%");
+    else if (rec.cap < target) alert("warn", "!", "生産能力 ほぼ達成");
+    else alert("ok", "✓", "生産能力 達成");
+    if (rec.capex > budgetCap) alert("bad", "✕", "予算 超過 ¥" + Math.round(rec.capex - budgetCap) + "億");
+    else if (rec.capex > budgetCap * 0.9) alert("warn", "!", "予算 上限に接近");
+    else alert("ok", "✓", "予算 範囲内");
+    var needClean = state.certs.indexOf("clean") >= 0 || state.certs.indexOf("gmp") >= 0 || state.certs.indexOf("haccp") >= 0;
+    if (needClean && !t.cleanZones.length) alert("warn", "!", "認証 クリーン区画 要追加");
+    else if (needClean) alert("ok", "✓", "認証 クリーン区画 対応");
+    else alert("ok", "✓", "認証 該当なし");
+    var eff = flowScore(view.tmpl, view.order).pct;
+    if (eff < 100) alert("warn", "!", "動線 逆流あり 効率" + eff + "%"); else alert("ok", "✓", "動線 良好");
+    document.getElementById("decAlerts").innerHTML = al.join("");
+
+    var cols = [["推奨案", rec, "rec"], ["低コスト案", low, ""], ["高速立上げ案", fast, ""]];
+    var rows = [
+      ["月産能力（個）", function (v) { return nf(v.cap); }, "max", "cap"],
+      ["建設投資（億円）", function (v) { return "¥" + f1(v.capex); }, "min", "capex"],
+      ["延床面積（m²）", function (v) { return nf(v.area); }, "none", "area"],
+      ["投資回収（年）", function (v) { return v.pay ? f1(v.pay) : "10+"; }, "min", "pay"],
+      ["立上げ期間（ヶ月）", function (v) { return f1(v.months); }, "min", "months"],
+      ["直接人員（名）", function (v) { return v.ops; }, "min", "ops"],
+      ["適合度スコア", function (v) { return f1(v.score); }, "max", "score"]
+    ];
+    var th = '<thead><tr><th>指標</th>';
+    for (var c = 0; c < cols.length; c++) th += '<th class="' + cols[c][2] + '">' + cols[c][0] + '</th>';
+    th += '</tr></thead><tbody>';
+    for (var r = 0; r < rows.length; r++) {
+      var key = rows[r][3], dir = rows[r][2], vals = cols.map(function (cc) { return cc[1][key]; });
+      var bestIdx = -1;
+      if (dir === "max") { var mx = -1e18; for (var q = 0; q < vals.length; q++) { var vv = vals[q] == null ? -1e18 : vals[q]; if (vv > mx) { mx = vv; bestIdx = q; } } }
+      if (dir === "min") { var mn = 1e18; for (var q2 = 0; q2 < vals.length; q2++) { var vv2 = vals[q2] == null ? 1e18 : vals[q2]; if (vv2 < mn) { mn = vv2; bestIdx = q2; } } }
+      th += '<tr><th>' + rows[r][0] + '</th>';
+      for (var c2 = 0; c2 < cols.length; c2++) {
+        var cls = (c2 === bestIdx ? "best " : "") + (cols[c2][2] === "rec" ? "rec" : "");
+        th += '<td class="' + cls.replace(/\s+$/, "") + '">' + rows[r][1](cols[c2][1]) + '</td>';
+      }
+      th += '</tr>';
+    }
+    th += '</tbody>';
+    document.getElementById("decTable").innerHTML = th;
+
+    document.getElementById("decAssume").innerHTML =
+      '<div>製品単価: ¥' + nf(price) + ' /個（想定）</div>'
+      + '<div>想定粗利率: ' + Math.round(margin * 100) + '%</div>'
+      + '<div>想定稼働率: 約85%</div>'
+      + '<div>歩留まり前提: 約97%</div>'
+      + '<div>立地係数(CAPEX): ×' + locF + '</div>'
+      + '<div>稼働係数(人員): ×' + shiftF + '</div>'
+      + '<div>目標月産: ' + nf(target) + ' 個</div>'
+      + '<div>予算上限: ¥' + budgetCap + '億</div>';
+
+    applySensitivity();
+  }
+  function applySensitivity() {
+    var pe = document.getElementById("sensPrice"); if (!pe || !decRec) return;
+    var dp = (+pe.value) / 100, dv = (+document.getElementById("sensVol").value) / 100, dl = (+document.getElementById("sensLabor").value) / 100;
+    document.getElementById("sensPriceV").textContent = (dp >= 0 ? "+" : "") + Math.round(dp * 100) + "%";
+    document.getElementById("sensVolV").textContent = (dv >= 0 ? "+" : "") + Math.round(dv * 100) + "%";
+    document.getElementById("sensLaborV").textContent = (dl >= 0 ? "+" : "") + Math.round(dl * 100) + "%";
+    var v = decRec.v, price = decRec.price * (1 + dp), cap = v.cap * (1 + dv), margin = Math.max(0.02, decRec.margin - dl * 0.35);
+    var pay = paybackOf(v.capex, cap, v.months, price, margin), cfYear = cap * 12 * price / 1e8 * margin;
+    document.getElementById("sensOut").innerHTML =
+      '投資回収 <b>' + (pay ? pay.toFixed(1) : "10+") + '年</b>（基準 ' + (v.pay ? v.pay.toFixed(1) : "10+") + '年）　／　年間キャッシュフロー 約¥' + (Math.round(cfYear * 10) / 10).toFixed(1) + '億';
+  }
+  function wireDecSens() {
+    ["sensPrice", "sensVol", "sensLabor"].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.addEventListener("input", applySensitivity);
+    });
+  }
   function renderDesignSearch(t) {
     if (!t || !document.getElementById("dsLog")) return;
     var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
@@ -1735,6 +1902,7 @@
     renderVendors();
     renderImpact();
     renderDesignSearch(t);
+    renderDecision(t);
   }
 
   function updateReqSum() {
@@ -1978,6 +2146,7 @@
     window.CaddiSetPhase = setPhase;
   })();
 
+  wireDecSens();
   update();
 })();
 </script>
