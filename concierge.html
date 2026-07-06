@@ -2162,1146 +2162,1371 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 var mount = document.getElementById("stage3d");
+
 if (mount) {
-  var scene, camera, renderer, controls;
-  var factoryGroup;
-  var animatedObjects = [];
-  var lastN = 0;
-  var currentTheme = '';
-  var lastTemplate = null;
-  var lastOrder = null;
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  var controls;
+  var equipmentGroup = new THREE.Group();
+  var labelLayer;
+  var panel;
+  var metricsNodes = {};
+  var buttons = {};
+  var labelItems = [];
+  var movingProducts = [];
+  var animatedRobots = [];
+  var bottleneckMeshes = [];
+  var agvGroup = null;
+  var agvPath = [];
+  var agvProgress = 0;
+  var currentTemplate = null;
+  var currentOrder = null;
+  var currentProcessCount = -1;
+  var lastTemplateKey = "";
+  var layoutVariant = 0;
+  var optimizedLayout = false;
+  var animationEnabled = true;
+  var animationClock = new THREE.Clock();
+  var simulationTime = 0;
+  var defaultCameraPosition = new THREE.Vector3(15, 15, 18);
+  var defaultTarget = new THREE.Vector3(0, 0, 0);
+  var prefersReducedMotionQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  var colorSchemeQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  var reducedMotion = prefersReducedMotionQuery ? prefersReducedMotionQuery.matches : false;
+  var lastMetrics = null;
 
-  init();
-}
+  mount.style.position = mount.style.position || "relative";
+  mount.style.overflow = "hidden";
+  if (!mount.style.height && mount.clientHeight < 120) {
+    mount.style.height = "340px";
+  }
+  mount.style.minHeight = mount.style.minHeight || "320px";
 
-function init() {
-  scene = new THREE.Scene();
-  
-  var width = mount.clientWidth;
-  var height = mount.clientHeight || 340;
-  
-  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-  
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.domElement.style.position = "absolute";
+  renderer.domElement.style.inset = "0";
+  renderer.domElement.style.width = "100%";
+  renderer.domElement.style.height = "100%";
+  renderer.domElement.style.display = "block";
   mount.appendChild(renderer.domElement);
-  
+
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.dampingFactor = 0.05;
-  controls.maxPolarAngle = Math.PI / 2 - 0.05;
-  controls.minDistance = 5;
-  controls.maxDistance = 150;
-  
-  factoryGroup = new THREE.Group();
-  scene.add(factoryGroup);
-  
-  setupLights();
-  
-  var resizeObserver = new ResizeObserver(function(entries) {
-    for (var i = 0; i < entries.length; i++) {
-      var entry = entries[i];
-      var w = entry.contentRect.width;
-      var h = entry.contentRect.height || 340;
-      renderer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+  controls.dampingFactor = 0.08;
+  controls.screenSpacePanning = true;
+  controls.target.set(0, 0, 0);
+
+  scene.add(equipmentGroup);
+  createBaseLights();
+  createOverlay();
+  applyTheme();
+  resizeRenderer();
+
+  if (window.ResizeObserver) {
+    var resizeObserver = new ResizeObserver(function () {
+      resizeRenderer();
+    });
+    resizeObserver.observe(mount);
+  } else {
+    window.addEventListener("resize", resizeRenderer);
+  }
+
+  if (colorSchemeQuery) {
+    if (colorSchemeQuery.addEventListener) {
+      colorSchemeQuery.addEventListener("change", applyTheme);
+    } else if (colorSchemeQuery.addListener) {
+      colorSchemeQuery.addListener(applyTheme);
     }
-  });
-  resizeObserver.observe(mount);
-  
+  }
+
+  if (prefersReducedMotionQuery) {
+    var motionChange = function () {
+      reducedMotion = prefersReducedMotionQuery.matches;
+      if (reducedMotion) {
+        animationEnabled = false;
+      }
+    };
+    if (prefersReducedMotionQuery.addEventListener) {
+      prefersReducedMotionQuery.addEventListener("change", motionChange);
+    } else if (prefersReducedMotionQuery.addListener) {
+      prefersReducedMotionQuery.addListener(motionChange);
+    }
+  }
+
+  if (window.MutationObserver && document.documentElement) {
+    var themeObserver = new MutationObserver(function () {
+      applyTheme();
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  }
+
+  window.CaddiPlant3D = {
+    render: function (template, order) {
+      renderPlant(template, order);
+    }
+  };
+
   animate();
-}
 
-function setupLights() {
-  var hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7);
-  hemiLight.name = "hemiLight";
-  hemiLight.position.set(0, 20, 0);
-  scene.add(hemiLight);
-  
-  var dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  dirLight.name = "dirLight";
-  dirLight.position.set(20, 30, 25);
-  dirLight.castShadow = true;
-  dirLight.shadow.mapSize.width = 1024;
-  dirLight.shadow.mapSize.height = 1024;
-  dirLight.shadow.bias = -0.001;
-  scene.add(dirLight);
-}
+  var st = window.CaddiPlantState && window.CaddiPlantState(); if (st && st.tmpl) window.CaddiPlant3D.render(st.tmpl, st.order);
 
-function getThemeColors() {
-  var isDark = document.documentElement.dataset.theme === 'dark' ||
-    (!document.documentElement.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  if (isDark) {
-    return {
-      bg: 0x18181c,
-      grid: 0x333338,
-      text: '#ffffff',
-      wall: 0x222227,
-      steel: 0x3e3e42,
-      cleanZone: 0x0088ff
-    };
-  } else {
-    return {
-      bg: 0xf3f4f6,
-      grid: 0xe5e7eb,
-      text: '#1f2937',
-      wall: 0xe5e7eb,
-      steel: 0x9ca3af,
-      cleanZone: 0x3b82f6
-    };
+  function createBaseLights() {
+    var ambient = new THREE.AmbientLight(0xffffff, 0.68);
+    scene.add(ambient);
+
+    var key = new THREE.DirectionalLight(0xffffff, 1.05);
+    key.position.set(-8, 14, 10);
+    key.castShadow = true;
+    key.shadow.mapSize.width = 1024;
+    key.shadow.mapSize.height = 1024;
+    key.shadow.camera.left = -30;
+    key.shadow.camera.right = 30;
+    key.shadow.camera.top = 30;
+    key.shadow.camera.bottom = -30;
+    scene.add(key);
+
+    var fill = new THREE.DirectionalLight(0x8fb7ff, 0.42);
+    fill.position.set(12, 8, -10);
+    scene.add(fill);
   }
-}
 
-function updateTheme() {
-  var themeInfo = getThemeColors();
-  var themeKey = themeInfo.bg.toString();
-  if (currentTheme === themeKey) return;
-  currentTheme = themeKey;
-  
-  scene.background = new THREE.Color(themeInfo.bg);
-  scene.fog = new THREE.FogExp2(themeInfo.bg, 0.007);
-  
-  var hemiLight = scene.getObjectByName("hemiLight");
-  var dirLight = scene.getObjectByName("dirLight");
-  if (hemiLight && dirLight) {
-    var isDark = document.documentElement.dataset.theme === 'dark' ||
-      (!document.documentElement.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (isDark) {
-      hemiLight.intensity = 0.5;
-      dirLight.intensity = 0.8;
-    } else {
-      hemiLight.intensity = 0.8;
-      dirLight.intensity = 1.1;
+  function createOverlay() {
+    var overlay = document.createElement("div");
+    overlay.style.position = "absolute";
+    overlay.style.inset = "0";
+    overlay.style.pointerEvents = "none";
+    overlay.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    overlay.style.zIndex = "2";
+    mount.appendChild(overlay);
+
+    labelLayer = document.createElement("div");
+    labelLayer.style.position = "absolute";
+    labelLayer.style.inset = "0";
+    labelLayer.style.pointerEvents = "none";
+    overlay.appendChild(labelLayer);
+
+    panel = document.createElement("div");
+    panel.style.position = "absolute";
+    panel.style.right = "10px";
+    panel.style.top = "10px";
+    panel.style.width = "220px";
+    panel.style.maxWidth = "calc(100% - 20px)";
+    panel.style.boxSizing = "border-box";
+    panel.style.borderRadius = "8px";
+    panel.style.padding = "10px";
+    panel.style.pointerEvents = "auto";
+    panel.style.backdropFilter = "blur(10px)";
+    panel.style.boxShadow = "0 12px 32px rgba(0,0,0,0.22)";
+    overlay.appendChild(panel);
+
+    var title = document.createElement("div");
+    title.textContent = "AI Optimization Panel";
+    title.style.fontSize = "13px";
+    title.style.fontWeight = "700";
+    title.style.letterSpacing = "0";
+    title.style.marginBottom = "8px";
+    panel.appendChild(title);
+
+    var metricNames = [
+      ["layoutScore", "Layout Score"],
+      ["leadTime", "Lead Time"],
+      ["throughput", "Throughput"],
+      ["bottleneckRisk", "Bottleneck Risk"],
+      ["workerDistance", "Worker Distance"]
+    ];
+
+    var metricsWrap = document.createElement("div");
+    panel.appendChild(metricsWrap);
+
+    for (var i = 0; i < metricNames.length; i++) {
+      var row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.justifyContent = "space-between";
+      row.style.gap = "10px";
+      row.style.alignItems = "baseline";
+      row.style.fontSize = "11px";
+      row.style.lineHeight = "1.35";
+      row.style.margin = "4px 0";
+
+      var label = document.createElement("span");
+      label.textContent = metricNames[i][1];
+      label.style.opacity = "0.76";
+
+      var value = document.createElement("strong");
+      value.textContent = "-";
+      value.style.fontSize = "12px";
+      value.style.fontWeight = "700";
+      value.style.whiteSpace = "nowrap";
+
+      row.appendChild(label);
+      row.appendChild(value);
+      metricsWrap.appendChild(row);
+      metricsNodes[metricNames[i][0]] = value;
+    }
+
+    var buttonWrap = document.createElement("div");
+    buttonWrap.style.display = "grid";
+    buttonWrap.style.gridTemplateColumns = "1fr 1fr";
+    buttonWrap.style.gap = "6px";
+    buttonWrap.style.marginTop = "10px";
+    panel.appendChild(buttonWrap);
+
+    buttons.generate = createPanelButton("Generate", function () {
+      layoutVariant += 1;
+      optimizedLayout = false;
+      renderPlant(currentTemplate, currentOrder);
+    });
+    buttons.simulate = createPanelButton("Simulate", function () {
+      animationEnabled = true;
+      simulationTime = 0;
+      agvProgress = 0;
+      resetMovingProducts();
+    });
+    buttons.optimize = createPanelButton("Optimize", function () {
+      optimizedLayout = true;
+      renderPlant(currentTemplate, currentOrder);
+      animationEnabled = !reducedMotion;
+      simulationTime = 0;
+      agvProgress = 0;
+      resetMovingProducts();
+    });
+    buttons.reset = createPanelButton("Reset View", function () {
+      fitCameraToFactory(true);
+    });
+
+    buttonWrap.appendChild(buttons.generate);
+    buttonWrap.appendChild(buttons.simulate);
+    buttonWrap.appendChild(buttons.optimize);
+    buttonWrap.appendChild(buttons.reset);
+  }
+
+  function createPanelButton(text, handler) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = text;
+    btn.style.border = "1px solid rgba(127,127,127,0.35)";
+    btn.style.borderRadius = "6px";
+    btn.style.padding = "6px 6px";
+    btn.style.fontSize = "11px";
+    btn.style.fontWeight = "650";
+    btn.style.cursor = "pointer";
+    btn.style.letterSpacing = "0";
+    btn.style.minWidth = "0";
+    btn.style.whiteSpace = "nowrap";
+    btn.addEventListener("click", handler);
+    return btn;
+  }
+
+  function applyTheme() {
+    var dark = isDarkTheme();
+    scene.background = new THREE.Color(dark ? 0x111722 : 0xf4f7fb);
+    renderer.setClearColor(scene.background, 1);
+
+    if (panel) {
+      panel.style.background = dark ? "rgba(15, 22, 32, 0.88)" : "rgba(255, 255, 255, 0.9)";
+      panel.style.border = dark ? "1px solid rgba(170, 190, 220, 0.2)" : "1px solid rgba(20, 32, 48, 0.13)";
+      panel.style.color = dark ? "#edf4ff" : "#17202b";
+    }
+
+    var btnList = [buttons.generate, buttons.simulate, buttons.optimize, buttons.reset];
+    for (var i = 0; i < btnList.length; i++) {
+      if (btnList[i]) {
+        btnList[i].style.background = dark ? "rgba(34, 45, 62, 0.92)" : "rgba(247, 250, 252, 0.95)";
+        btnList[i].style.color = dark ? "#f4f8ff" : "#16202c";
+      }
     }
   }
-  
-  if (lastTemplate && lastOrder) {
-    drawFactory(lastTemplate, lastOrder);
-  }
-}
 
-function fitCamera(n, force) {
-  if (lastN === n && !force) return;
-  lastN = n;
-  
-  var totalW = n * 12;
-  controls.target.set(0, 1.5, 0);
-  
-  var fovRad = (camera.fov * Math.PI) / 180;
-  var aspect = camera.aspect || (mount.clientWidth / (mount.clientHeight || 340));
-  var halfW = totalW / 2;
-  var dist = halfW / Math.tan(fovRad / 2);
-  if (aspect < 1) {
-    dist = dist / aspect;
+  function isDarkTheme() {
+    var theme = document.documentElement && document.documentElement.dataset ? document.documentElement.dataset.theme : "";
+    if (theme === "dark") {
+      return true;
+    }
+    if (theme === "light") {
+      return false;
+    }
+    return colorSchemeQuery ? colorSchemeQuery.matches : false;
   }
-  
-  dist = Math.max(dist * 0.72, 14);
-  camera.position.set(0, dist * 0.5, dist * 0.84);
-  controls.update();
-}
 
-function updateLightShadow(n) {
-  var dirLight = scene.getObjectByName("dirLight");
-  if (!dirLight) return;
-  
-  var d = Math.max(n * 7, 15);
-  dirLight.shadow.camera.left = -d;
-  dirLight.shadow.camera.right = d;
-  dirLight.shadow.camera.top = d * 0.8;
-  dirLight.shadow.camera.bottom = -d * 0.8;
-  dirLight.shadow.camera.near = 0.1;
-  dirLight.shadow.camera.far = d * 4;
-  dirLight.shadow.camera.updateProjectionMatrix();
-}
-
-function clearGroup(group) {
-  while (group.children.length > 0) {
-    var object = group.children[0];
-    group.remove(object);
-    disposeObject(object);
+  function resizeRenderer() {
+    var w = Math.max(1, mount.clientWidth || 640);
+    var h = Math.max(260, mount.clientHeight || 340);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
   }
-}
 
-function disposeObject(object) {
-  if (object.geometry) {
-    object.geometry.dispose();
-  }
-  if (object.material) {
-    if (Array.isArray(object.material)) {
-      object.material.forEach(function(mat) { disposeMaterial(mat); });
+  function renderPlant(template, order) {
+    if (!template || !template.processFlow || !template.processFlow.length) {
+      template = { name: "Factory", id: "factory", processFlow: ["受入", "加工", "検査", "包装", "出荷"], cleanZones: [] };
+      order = null;
+    }
+
+    var flow = getOrderedFlow(template, order);
+    var templateKey = String(template.id || template.name || "") + "|" + template.processFlow.join("|");
+    if (templateKey !== lastTemplateKey) {
+      optimizedLayout = false;
+      layoutVariant = 0;
+      lastTemplateKey = templateKey;
+    }
+
+    currentTemplate = template;
+    currentOrder = order;
+
+    clearEquipment();
+    clearLabels();
+
+    var layout = createLayout(flow, template.cleanZones || []);
+    buildFactory(layout, flow, template);
+    lastMetrics = calculateMetrics(layout, flow, template.cleanZones || []);
+    updateMetricsPanel(lastMetrics);
+
+    if (currentProcessCount !== flow.length) {
+      currentProcessCount = flow.length;
+      fitCameraToFactory(true);
     } else {
-      disposeMaterial(object.material);
+      updateDefaultCameraPose();
+    }
+
+    resetMovingProducts();
+  }
+
+  function getOrderedFlow(template, order) {
+    var source = template.processFlow || [];
+    var result = [];
+    var used = {};
+    var i;
+    var idx;
+    if (order && order.length) {
+      for (i = 0; i < order.length; i++) {
+        if (typeof order[i] === "number") {
+          idx = order[i];
+          if (idx >= 0 && idx < source.length && !used[idx]) {
+            result.push(String(source[idx]));
+            used[idx] = true;
+          }
+        } else {
+          idx = indexOfName(source, String(order[i]));
+          if (idx >= 0 && !used[idx]) {
+            result.push(String(source[idx]));
+            used[idx] = true;
+          }
+        }
+      }
+    }
+    for (i = 0; i < source.length; i++) {
+      if (!used[i]) {
+        result.push(String(source[i]));
+      }
+    }
+    return result.slice(0, 9);
+  }
+
+  function indexOfName(list, name) {
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i]) === name) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  function createLayout(flow, cleanZones) {
+    var n = Math.max(3, flow.length);
+    var variantSpread = (layoutVariant % 3) * 0.45;
+    var optimizeFactor = optimizedLayout ? 0.82 : 1 + variantSpread * 0.08;
+    var halfWidth = Math.max(10, (7.2 + n * 1.25) * optimizeFactor);
+    var branchZ = optimizedLayout ? 2.25 : 3.05 + variantSpread;
+    var reworkZ = optimizedLayout ? 4.0 : 5.05 + variantSpread * 0.7;
+    var depth = Math.max(10.5, reworkZ * 2 + 2.4);
+    var leftX = -halfWidth;
+    var rightX = halfWidth;
+    var rawX = leftX + 1.15;
+    var splitX = leftX + (optimizedLayout ? 4.0 : 4.8 + variantSpread);
+    var mergeX = optimizedLayout ? -1.9 : -1.1 + variantSpread * 0.35;
+    var inspectX = optimizedLayout ? 1.35 : 2.35 + variantSpread * 0.45;
+    var afterInspectX = inspectX + (optimizedLayout ? 1.55 : 2.0);
+    var packX = rightX - (optimizedLayout ? 3.5 : 4.3 + variantSpread * 0.3);
+    var shipX = rightX - 1.05;
+
+    var points = {
+      rawStart: v3(rawX, 0, 0),
+      split: v3(splitX, 0, 0),
+      aUp: v3(splitX, 0, branchZ),
+      aRun: v3(mergeX - 0.65, 0, branchZ),
+      aMerge: v3(mergeX, 0, 0),
+      bDown: v3(splitX + (optimizedLayout ? 0.35 : 0.75), 0, -branchZ),
+      bRun: v3(mergeX - 0.95, 0, -branchZ),
+      bMerge: v3(mergeX, 0, 0),
+      inspection: v3(inspectX, 0, 0),
+      afterInspection: v3(afterInspectX, 0, 0),
+      pack: v3(packX, 0, 0),
+      ship: v3(shipX, 0, 0),
+      reworkDrop: v3(afterInspectX, 0, -reworkZ),
+      reworkRun: v3(packX - (optimizedLayout ? 2.2 : 3.0), 0, -reworkZ),
+      reworkLift: v3(packX - (optimizedLayout ? 2.2 : 3.0), 0, 0)
+    };
+
+    var paths = {};
+    paths.infeed = [points.rawStart, points.split];
+    paths.branchA = [points.split, points.aUp, points.aRun, points.aMerge];
+    paths.branchB = [points.split, points.bDown, points.bRun, points.bMerge];
+    paths.toInspection = [points.aMerge, points.inspection, points.afterInspection];
+    paths.normal = [points.afterInspection, points.pack, points.ship];
+    paths.rework = [points.afterInspection, points.reworkDrop, points.reworkRun, points.reworkLift, points.pack];
+    paths.agv = [
+      v3(leftX + 1.8, 0, -reworkZ + 0.75),
+      v3(splitX + 0.7, 0, -reworkZ + 0.75),
+      v3(splitX + 0.7, 0, -branchZ - 0.9),
+      v3(mergeX - 1.0, 0, -branchZ - 0.9)
+    ];
+
+    return {
+      n: n,
+      halfWidth: halfWidth,
+      depth: depth,
+      branchZ: branchZ,
+      reworkZ: reworkZ,
+      leftX: leftX,
+      rightX: rightX,
+      splitX: splitX,
+      mergeX: mergeX,
+      inspectX: inspectX,
+      afterInspectX: afterInspectX,
+      packX: packX,
+      shipX: shipX,
+      points: points,
+      paths: paths,
+      cleanZones: cleanZones,
+      inefficientTurns: optimizedLayout ? 3 : 6 + (layoutVariant % 3),
+      optimized: optimizedLayout
+    };
+  }
+
+  function buildFactory(layout, flow, template) {
+    // 基材材質はrender間で再利用（メッシュは各々clone。毎render生成による材質リークを防止 — agyレビュー#3）
+    if (!buildFactory._mats) buildFactory._mats = createMaterials();
+    var mats = buildFactory._mats;
+    createFloor(layout, mats);
+    createConveyors(layout, mats);
+    createStations(layout, flow, template, mats);
+    createWarehouseAndShipping(layout, mats);
+    createAgv(layout, mats);
+    createProducts(layout, mats);
+  }
+
+  function createMaterials() {
+    return {
+      floorBase: new THREE.MeshStandardMaterial({ color: 0xd9e0e7, roughness: 0.88, metalness: 0.02 }),
+      rawZone: new THREE.MeshStandardMaterial({ color: 0xaec7df, roughness: 0.86 }),
+      processZone: new THREE.MeshStandardMaterial({ color: 0xbfd8c2, roughness: 0.86 }),
+      inspectZone: new THREE.MeshStandardMaterial({ color: 0xe4d5a4, roughness: 0.86 }),
+      packZone: new THREE.MeshStandardMaterial({ color: 0xd8c2dc, roughness: 0.86 }),
+      shipZone: new THREE.MeshStandardMaterial({ color: 0xb9c7d6, roughness: 0.86 }),
+      conveyor: new THREE.MeshStandardMaterial({ color: 0x263240, roughness: 0.48, metalness: 0.22 }),
+      conveyorSide: new THREE.MeshStandardMaterial({ color: 0x6d7f8f, roughness: 0.42, metalness: 0.35 }),
+      slat: new THREE.MeshStandardMaterial({ color: 0xa5b4c2, roughness: 0.38, metalness: 0.28 }),
+      machineBlue: new THREE.MeshStandardMaterial({ color: 0x4078a8, roughness: 0.44, metalness: 0.15 }),
+      machineGreen: new THREE.MeshStandardMaterial({ color: 0x3f8e76, roughness: 0.52, metalness: 0.08 }),
+      machineYellow: new THREE.MeshStandardMaterial({ color: 0xc9a241, roughness: 0.52, metalness: 0.08 }),
+      machineGray: new THREE.MeshStandardMaterial({ color: 0x76838e, roughness: 0.5, metalness: 0.18 }),
+      cleanGlass: new THREE.MeshStandardMaterial({ color: 0x8ed7ff, transparent: true, opacity: 0.18, roughness: 0.08, metalness: 0.02, depthWrite: false, side: THREE.DoubleSide }),
+      cleanEdge: new THREE.LineBasicMaterial({ color: 0x59bce8, transparent: true, opacity: 0.62 }),
+      productA: new THREE.MeshStandardMaterial({ color: 0xf0b64a, roughness: 0.48 }),
+      productB: new THREE.MeshStandardMaterial({ color: 0x68b3e3, roughness: 0.42 }),
+      workerBody: new THREE.MeshStandardMaterial({ color: 0x2f6fb0, roughness: 0.55 }),
+      workerHead: new THREE.MeshStandardMaterial({ color: 0xe2b183, roughness: 0.56 }),
+      agv: new THREE.MeshStandardMaterial({ color: 0xf0c33c, roughness: 0.38, metalness: 0.05 }),
+      darkRubber: new THREE.MeshStandardMaterial({ color: 0x1c242b, roughness: 0.68 })
+    };
+  }
+
+  function createFloor(layout, mats) {
+    var totalW = layout.halfWidth * 2 + 2.2;
+    var totalD = layout.depth + 1.2;
+    var base = new THREE.Mesh(new THREE.BoxGeometry(totalW, 0.04, totalD), mats.floorBase);
+    base.position.set(0, 0.02, 0);
+    base.receiveShadow = true;
+    equipmentGroup.add(base);
+
+    var zoneStart = -layout.halfWidth - 0.1;
+    var zoneEnd = layout.halfWidth + 0.1;
+    var zoneTotal = zoneEnd - zoneStart;
+    createZone("原材料", zoneStart, zoneTotal * 0.18, totalD, mats.rawZone, 0);
+    createZone("加工", zoneStart + zoneTotal * 0.18, zoneTotal * 0.36, totalD, mats.processZone, 1);
+    createZone("検査", zoneStart + zoneTotal * 0.54, zoneTotal * 0.16, totalD, mats.inspectZone, 2);
+    createZone("包装", zoneStart + zoneTotal * 0.70, zoneTotal * 0.16, totalD, mats.packZone, 3);
+    createZone("出荷", zoneStart + zoneTotal * 0.86, zoneTotal * 0.14, totalD, mats.shipZone, 4);
+
+    createGridLines(totalW, totalD, 1.6);
+  }
+
+  function createZone(name, xStart, width, depth, material, index) {
+    var zone = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, 0.035, depth - 0.08), material);
+    zone.position.set(xStart + width / 2, 0.055 + index * 0.001, 0);
+    zone.receiveShadow = true;
+    equipmentGroup.add(zone);
+    addHtmlLabel(name, v3(xStart + width / 2, 0.18, depth / 2 - 0.8), "zone");
+  }
+
+  function createGridLines(width, depth, step) {
+    var mat = new THREE.MeshBasicMaterial({ color: isDarkTheme() ? 0x415061 : 0xc5ced8, transparent: true, opacity: 0.32 });
+    var xCount = Math.floor(width / step);
+    var zCount = Math.floor(depth / step);
+    for (var i = 0; i <= xCount; i++) {
+      var x = -width / 2 + i * step;
+      var lineX = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.01, depth), mat.clone());
+      lineX.position.set(x, 0.085, 0);
+      equipmentGroup.add(lineX);
+    }
+    for (var j = 0; j <= zCount; j++) {
+      var z = -depth / 2 + j * step;
+      var lineZ = new THREE.Mesh(new THREE.BoxGeometry(width, 0.01, 0.014), mat.clone());
+      lineZ.position.set(0, 0.086, z);
+      equipmentGroup.add(lineZ);
     }
   }
-  if (object.children) {
-    object.children.forEach(function(child) { disposeObject(child); });
+
+  function createConveyors(layout, mats) {
+    createConveyorPath(layout.paths.infeed, mats.conveyor, mats.conveyorSide, mats.slat, 0x86a2b9);
+    createConveyorPath(layout.paths.branchA, mats.conveyor, mats.conveyorSide, mats.slat, 0x74bf93);
+    createConveyorPath(layout.paths.branchB, mats.conveyor, mats.conveyorSide, mats.slat, 0x6aa0d5);
+    createConveyorPath(layout.paths.toInspection, mats.conveyor, mats.conveyorSide, mats.slat, 0xd4b75e);
+    createConveyorPath(layout.paths.normal, mats.conveyor, mats.conveyorSide, mats.slat, 0xb38ac8);
+    createConveyorPath(layout.paths.rework, mats.conveyor, mats.conveyorSide, mats.slat, 0xe17b68);
+    createTurnDisks(layout, mats);
   }
-}
 
-function disposeMaterial(mat) {
-  if (mat.map) mat.map.dispose();
-  if (mat.lightMap) mat.lightMap.dispose();
-  if (mat.bumpMap) mat.bumpMap.dispose();
-  if (mat.normalMap) mat.normalMap.dispose();
-  if (mat.specularMap) mat.specularMap.dispose();
-  if (mat.envMap) mat.envMap.dispose();
-  mat.dispose();
-}
-
-function createLabelTexture(text, isDark) {
-  var canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 128;
-  var ctx = canvas.getContext('2d');
-  
-  ctx.fillStyle = isDark ? 'rgba(24, 24, 28, 0.9)' : 'rgba(255, 255, 255, 0.9)';
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(8, 8, 496, 112, 16);
-  } else {
-    ctx.rect(8, 8, 496, 112);
+  function createConveyorPath(points, beltMat, sideMat, slatMat, accentColor) {
+    for (var i = 0; i < points.length - 1; i++) {
+      createConveyorSegment(points[i], points[i + 1], beltMat, sideMat, slatMat);
+    }
+    var accentMat = new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.46, metalness: 0.08 });
+    for (var j = 0; j < points.length; j++) {
+      var marker = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 24), accentMat.clone());
+      marker.position.set(points[j].x, 0.205, points[j].z);
+      marker.castShadow = true;
+      marker.receiveShadow = true;
+      equipmentGroup.add(marker);
+    }
   }
-  ctx.fill();
-  
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = isDark ? '#3b82f6' : '#2563eb';
-  ctx.stroke();
-  
-  ctx.fillStyle = isDark ? '#ffffff' : '#1f2937';
-  ctx.font = 'bold 40px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 256, 64);
-  
-  var texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearFilter;
-  return texture;
-}
 
-function buildColumn(x, z, h, mat, group) {
-  var colGroup = new THREE.Group();
-  
-  var web = new THREE.Mesh(new THREE.BoxGeometry(0.1, h, 0.3), mat);
-  web.castShadow = true;
-  web.receiveShadow = true;
-  colGroup.add(web);
-  
-  var flangeL = new THREE.Mesh(new THREE.BoxGeometry(0.3, h, 0.05), mat);
-  flangeL.position.z = -0.15;
-  flangeL.castShadow = true;
-  flangeL.receiveShadow = true;
-  colGroup.add(flangeL);
-  
-  var flangeR = new THREE.Mesh(new THREE.BoxGeometry(0.3, h, 0.05), mat);
-  flangeR.position.z = 0.15;
-  flangeR.castShadow = true;
-  flangeR.receiveShadow = true;
-  colGroup.add(flangeR);
-  
-  var base = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 0.6), mat);
-  base.position.y = -h / 2 + 0.05;
-  colGroup.add(base);
-  
-  colGroup.position.set(x, h / 2, z);
-  group.add(colGroup);
-}
+  function createConveyorSegment(a, b, beltMat, sideMat, slatMat) {
+    var dx = b.x - a.x;
+    var dz = b.z - a.z;
+    var len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 0.05) {
+      return;
+    }
 
-function buildBeamsAndTrusses(startX, zoneW, n, zoneD, h, mat, group) {
-  var totalW = n * zoneW;
-  var beamGeoX = new THREE.BoxGeometry(totalW, 0.3, 0.3);
-  
-  var beamFront = new THREE.Mesh(beamGeoX, mat);
-  beamFront.position.set(0, h, zoneD / 2);
-  beamFront.castShadow = true;
-  group.add(beamFront);
-  
-  var beamBack = new THREE.Mesh(beamGeoX, mat);
-  beamBack.position.set(0, h, -zoneD / 2);
-  beamBack.castShadow = true;
-  group.add(beamBack);
-  
-  for (var i = 0; i <= n; i++) {
-    var x = startX - zoneW / 2 + i * zoneW;
-    
-    var beamGeoZ = new THREE.BoxGeometry(0.2, 0.2, zoneD);
-    var beamZ = new THREE.Mesh(beamGeoZ, mat);
-    beamZ.position.set(x, h, 0);
-    beamZ.castShadow = true;
-    group.add(beamZ);
-    
-    var trussGroup = new THREE.Group();
-    trussGroup.position.set(x, h, 0);
-    
-    var peakY = 2.5;
-    var len = Math.sqrt((zoneD / 2) * (zoneD / 2) + peakY * peakY);
-    var angle = Math.atan2(peakY, zoneD / 2);
-    
-    var strutGeo = new THREE.BoxGeometry(0.1, 0.1, len);
-    
-    var strut1 = new THREE.Mesh(strutGeo, mat);
-    strut1.position.set(0, peakY / 2, zoneD / 4);
-    strut1.rotation.x = -angle;
-    strut1.castShadow = true;
-    trussGroup.add(strut1);
-    
-    var strut2 = new THREE.Mesh(strutGeo, mat);
-    strut2.position.set(0, peakY / 2, -zoneD / 4);
-    strut2.rotation.x = angle;
-    strut2.castShadow = true;
-    trussGroup.add(strut2);
-    
-    var vertGeo = new THREE.BoxGeometry(0.06, peakY, 0.06);
-    var vert = new THREE.Mesh(vertGeo, mat);
-    vert.position.set(0, peakY / 2, 0);
-    trussGroup.add(vert);
-    
-    var braceLen = Math.sqrt((zoneD / 4) * (zoneD / 4) + (peakY / 2) * (peakY / 2));
-    var braceAngle = Math.atan2(peakY / 2, zoneD / 4);
-    var braceGeo = new THREE.BoxGeometry(0.05, 0.05, braceLen);
-    
-    var brace1 = new THREE.Mesh(braceGeo, mat);
-    brace1.position.set(0, peakY / 4, zoneD / 8);
-    brace1.rotation.x = -braceAngle;
-    trussGroup.add(brace1);
-    
-    var brace2 = new THREE.Mesh(braceGeo, mat);
-    brace2.position.set(0, peakY / 4, -zoneD / 8);
-    brace2.rotation.x = braceAngle;
-    trussGroup.add(brace2);
-    
-    group.add(trussGroup);
+    var group = new THREE.Group();
+    group.position.set((a.x + b.x) / 2, 0, (a.z + b.z) / 2);
+    group.rotation.y = -Math.atan2(dz, dx);
+
+    var belt = new THREE.Mesh(new THREE.BoxGeometry(len, 0.16, 0.68), beltMat.clone());
+    belt.position.y = 0.12;
+    belt.castShadow = true;
+    belt.receiveShadow = true;
+    group.add(belt);
+
+    var railA = new THREE.Mesh(new THREE.BoxGeometry(len, 0.18, 0.06), sideMat.clone());
+    railA.position.set(0, 0.24, 0.39);
+    railA.castShadow = true;
+    group.add(railA);
+
+    var railB = new THREE.Mesh(new THREE.BoxGeometry(len, 0.18, 0.06), sideMat.clone());
+    railB.position.set(0, 0.24, -0.39);
+    railB.castShadow = true;
+    group.add(railB);
+
+    var slatCount = Math.max(2, Math.floor(len / 0.62));
+    for (var i = 0; i < slatCount; i++) {
+      var slat = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.035, 0.62), slatMat.clone());
+      slat.position.set(-len / 2 + (i + 0.5) * len / slatCount, 0.225, 0);
+      slat.castShadow = true;
+      group.add(slat);
+    }
+
+    equipmentGroup.add(group);
   }
-}
 
-function buildCleanRoom(x, w, d, h, mats, group) {
-  var wallMat = mats.glass;
-  var frameMat = mats.metal;
-  
-  var frontGeo = new THREE.BoxGeometry(w, h, 0.05);
-  var frontWall = new THREE.Mesh(frontGeo, wallMat);
-  frontWall.position.set(x, h / 2, -1 + d / 2);
-  group.add(frontWall);
-  
-  var backWall = new THREE.Mesh(frontGeo, wallMat);
-  backWall.position.set(x, h / 2, -1 - d / 2);
-  group.add(backWall);
-  
-  var sideGeo = new THREE.BoxGeometry(0.05, h, d);
-  var leftWall = new THREE.Mesh(sideGeo, wallMat);
-  leftWall.position.set(x - w / 2, h / 2, -1);
-  group.add(leftWall);
-  
-  var rightWall = new THREE.Mesh(sideGeo, wallMat);
-  rightWall.position.set(x + w / 2, h / 2, -1);
-  group.add(rightWall);
-  
-  var postGeo = new THREE.BoxGeometry(0.15, h, 0.15);
-  var corners = [
-    [x - w / 2, -1 - d / 2],
-    [x - w / 2, -1 + d / 2],
-    [x + w / 2, -1 - d / 2],
-    [x + w / 2, -1 + d / 2]
-  ];
-  corners.forEach(function(c) {
-    var post = new THREE.Mesh(postGeo, frameMat);
-    post.position.set(c[0], h / 2, c[1]);
-    group.add(post);
-  });
-  
-  var topGeoX = new THREE.BoxGeometry(w, 0.15, 0.15);
-  var topFront = new THREE.Mesh(topGeoX, frameMat);
-  topFront.position.set(x, h, -1 + d / 2);
-  group.add(topFront);
-  
-  var topBack = new THREE.Mesh(topGeoX, frameMat);
-  topBack.position.set(x, h, -1 - d / 2);
-  group.add(topBack);
-  
-  var topGeoZ = new THREE.BoxGeometry(0.15, 0.15, d);
-  var topLeft = new THREE.Mesh(topGeoZ, frameMat);
-  topLeft.position.set(x - w / 2, h, -1);
-  group.add(topLeft);
-  
-  var topRight = new THREE.Mesh(topGeoZ, frameMat);
-  topRight.position.set(x + w / 2, h, -1);
-  group.add(topRight);
-  
-  var ceilingGeo = new THREE.BoxGeometry(w - 0.2, 0.1, d - 0.2);
-  var ceiling = new THREE.Mesh(ceilingGeo, mats.white);
-  ceiling.position.set(x, h, -1);
-  group.add(ceiling);
-  
-  var glowGeo = new THREE.BoxGeometry(w - 1, 0.05, 0.1);
-  var glowMat = new THREE.MeshStandardMaterial({
-    color: 0x00d2ff,
-    emissive: 0x00a8ff,
-    emissiveIntensity: 1.5
-  });
-  var glow1 = new THREE.Mesh(glowGeo, glowMat);
-  glow1.position.set(x, h - 0.05, -1 - d / 4);
-  group.add(glow1);
-  
-  var glow2 = new THREE.Mesh(glowGeo, glowMat);
-  glow2.position.set(x, h - 0.05, -1 + d / 4);
-  group.add(glow2);
-  
-  animatedObjects.push({
-    type: 'glow',
-    mesh: glow1,
-    mesh2: glow2
-  });
-}
-
-function buildConveyor(x, z, mats, group) {
-  var convW = 1.6;
-  var convL = 1.4;
-  var convH = 0.8;
-  
-  var conveyor = new THREE.Group();
-  conveyor.position.set(x, convH, z);
-  
-  var railGeo = new THREE.BoxGeometry(convL, 0.15, 0.08);
-  var railL = new THREE.Mesh(railGeo, mats.metal);
-  railL.position.z = -convW / 2;
-  railL.castShadow = true;
-  conveyor.add(railL);
-  
-  var railR = new THREE.Mesh(railGeo, mats.metal);
-  railR.position.z = convW / 2;
-  railR.castShadow = true;
-  conveyor.add(railR);
-  
-  var legGeo = new THREE.BoxGeometry(0.08, convH, 0.08);
-  var legs = [
-    [-convL / 2 + 0.1, -convH / 2, -convW / 2 + 0.04],
-    [-convL / 2 + 0.1, -convH / 2, convW / 2 - 0.04],
-    [convL / 2 - 0.1, -convH / 2, -convW / 2 + 0.04],
-    [convL / 2 - 0.1, -convH / 2, convW / 2 - 0.04]
-  ];
-  legs.forEach(function(pos) {
-    var leg = new THREE.Mesh(legGeo, mats.metal);
-    leg.position.set(pos[0], pos[1], pos[2]);
-    leg.castShadow = true;
-    conveyor.add(leg);
-  });
-  
-  var rollerCount = 6;
-  var rollerGeo = new THREE.CylinderGeometry(0.06, 0.06, convW - 0.1, 8);
-  
-  var rollerGroup = new THREE.Group();
-  for (var i = 0; i < rollerCount; i++) {
-    var rx = -convL / 2 + (convL / (rollerCount - 1)) * i;
-    var roller = new THREE.Mesh(rollerGeo, mats.metal);
-    roller.position.set(rx, 0.03, 0);
-    roller.rotation.x = Math.PI / 2;
-    roller.castShadow = true;
-    rollerGroup.add(roller);
+  function createTurnDisks(layout, mats) {
+    var mat = new THREE.MeshStandardMaterial({ color: 0x485d70, roughness: 0.4, metalness: 0.25 });
+    var pts = [
+      layout.points.split,
+      layout.points.aMerge,
+      layout.points.afterInspection,
+      layout.points.reworkLift,
+      layout.points.pack
+    ];
+    for (var i = 0; i < pts.length; i++) {
+      var disk = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.1, 32), mat.clone());
+      disk.position.set(pts[i].x, 0.19, pts[i].z);
+      disk.castShadow = true;
+      disk.receiveShadow = true;
+      equipmentGroup.add(disk);
+    }
   }
-  conveyor.add(rollerGroup);
-  
-  animatedObjects.push({
-    type: 'conveyor',
-    mesh: rollerGroup
-  });
-  
-  group.add(conveyor);
-}
 
-function buildSignalTower(mats) {
-  var tower = new THREE.Group();
-  
-  var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 8), mats.metal);
-  pole.position.y = 0.4;
-  tower.add(pole);
-  
-  var rLamp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15, 8), new THREE.MeshStandardMaterial({ color: 0xe74c3c, emissive: 0xc0392b, emissiveIntensity: 0.2 }));
-  rLamp.position.y = 1.175;
-  tower.add(rLamp);
-  
-  var yLamp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15, 8), new THREE.MeshStandardMaterial({ color: 0xf1c40f, emissive: 0xd35400, emissiveIntensity: 0.2 }));
-  yLamp.position.y = 1.025;
-  tower.add(yLamp);
-  
-  var gLamp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15, 8), new THREE.MeshStandardMaterial({ color: 0x2ecc71, emissive: 0x27ae60, emissiveIntensity: 0.5 }));
-  gLamp.position.y = 0.875;
-  tower.add(gLamp);
-  
-  var cap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 8), mats.darkMetal);
-  cap.position.y = 1.275;
-  tower.add(cap);
-  
-  animatedObjects.push({
-    type: 'patlite',
-    red: rLamp,
-    yellow: yLamp,
-    green: gLamp
-  });
-  
-  return tower;
-}
+  function createStations(layout, flow, template, mats) {
+    var cleanMap = {};
+    var cleanZones = template.cleanZones || [];
+    var i;
+    for (i = 0; i < cleanZones.length; i++) {
+      cleanMap[String(cleanZones[i])] = true;
+    }
 
-function createMachine(name, mats, isClean) {
-  var group = new THREE.Group();
-  var nameL = name.toLowerCase();
-  
-  var isStorage = nameL.includes("受入") || nameL.includes("出荷") || nameL.includes("搬入") || nameL.includes("搬出") || nameL.includes("材料") || nameL.includes("倉庫") || nameL.includes("物流");
-  var isProcess = nameL.includes("加工") || nameL.includes("切削") || nameL.includes("バリ") || nameL.includes("プレス") || nameL.includes("研磨") || nameL.includes("削り");
-  var isCoating = nameL.includes("塗工") || nameL.includes("乾燥") || nameL.includes("注液") || nameL.includes("コーティング") || nameL.includes("加熱") || nameL.includes("炉") || nameL.includes("ベーク");
-  var isInspect = nameL.includes("検査") || nameL.includes("測定") || nameL.includes("試験") || nameL.includes("テスト") || nameL.includes("評価");
-  var isTank = nameL.includes("混練") || nameL.includes("化成") || nameL.includes("洗浄") || nameL.includes("タンク") || nameL.includes("混合") || nameL.includes("調合");
-  var isAssembly = nameL.includes("巻回") || nameL.includes("組立") || nameL.includes("ロボット") || nameL.includes("挿入") || nameL.includes("接合") || nameL.includes("積層");
+    var bottleneckIndex = chooseBottleneckIndex(flow);
+    var positions = createProcessPositions(layout, flow);
 
-  if (isStorage) {
-    var palette = new THREE.Group();
-    var woodMat = mats.wood;
-    
-    var baseP = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 2), woodMat);
-    baseP.position.y = 0.05;
-    baseP.castShadow = true;
-    baseP.receiveShadow = true;
-    palette.add(baseP);
-    
-    var block1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 2), woodMat);
-    block1.position.set(-0.9, 0.175, 0);
-    block1.castShadow = true;
-    palette.add(block1);
-    var block2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 2), woodMat);
-    block2.position.set(0.9, 0.175, 0);
-    block2.castShadow = true;
-    palette.add(block2);
-    var block3 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 2), woodMat);
-    block3.position.set(0, 0.175, 0);
-    block3.castShadow = true;
-    palette.add(block3);
-    
-    var topP = new THREE.Mesh(new THREE.BoxGeometry(2, 0.08, 2), woodMat);
-    topP.position.y = 0.29;
-    topP.castShadow = true;
-    palette.add(topP);
-    
-    palette.position.set(-1.2, 0, 1);
-    group.add(palette);
-    
-    var box1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), mats.orange);
-    box1.position.set(-1.6, 0.73, 0.6);
-    box1.castShadow = true;
-    group.add(box1);
-    
-    var box2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), mats.orange);
-    box2.position.set(-0.8, 0.73, 1.4);
-    box2.castShadow = true;
-    group.add(box2);
-    
-    var box3 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), mats.orange);
-    box3.position.set(-1.2, 1.53, 1.0);
-    box3.castShadow = true;
-    group.add(box3);
+    for (i = 0; i < flow.length; i++) {
+      var name = flow[i];
+      var pos = positions[i];
+      var isBottleneck = i === bottleneckIndex;
+      var clean = !!cleanMap[name];
 
-    var drumGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 12);
-    var drum = new THREE.Mesh(drumGeo, mats.blue);
-    drum.position.set(1.2, 0.6, 1.2);
-    drum.castShadow = true;
-    group.add(drum);
-    
-    var drum2 = new THREE.Mesh(drumGeo, mats.red);
-    drum2.position.set(1.2, 0.6, 0.2);
-    drum2.castShadow = true;
-    group.add(drum2);
-    
-    var shutterGroup = new THREE.Group();
-    shutterGroup.position.set(0, 0, -4.5);
-    
-    var frameL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 4, 0.15), mats.metal);
-    frameL.position.set(-2, 2, 0);
-    shutterGroup.add(frameL);
-    
-    var frameR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 4, 0.15), mats.metal);
-    frameR.position.set(2, 2, 0);
-    shutterGroup.add(frameR);
-    
-    var frameT = new THREE.Mesh(new THREE.BoxGeometry(4.15, 0.3, 0.3), mats.metal);
-    frameT.position.set(0, 4, 0);
-    shutterGroup.add(frameT);
-    
-    var sheetGeo = new THREE.BoxGeometry(3.8, 3.8, 0.05);
-    var sheet = new THREE.Mesh(sheetGeo, mats.darkMetal);
-    sheet.position.set(0, 1.9, -0.05);
-    shutterGroup.add(sheet);
-    
-    group.add(shutterGroup);
+      if (clean) {
+        createCleanRoom(name, pos, mats);
+      }
 
-  } else if (isProcess) {
-    var base = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.6, 3.2), mats.darkMetal);
-    base.position.y = 0.8;
+      if (i === 0 || isReceivingName(name)) {
+        createReceivingStation(name, pos, mats, isBottleneck);
+      } else if (i === flow.length - 1 || isShippingName(name)) {
+        createShippingStation(name, pos, mats, isBottleneck);
+      } else if (isInspectionName(name) || isBottleneck) {
+        createInspectionGate(name, pos, mats, isBottleneck);
+      } else if (isTankName(name) || clean) {
+        createTankStation(name, pos, mats, isBottleneck);
+      } else if (i % 2 === 0) {
+        createRobotStation(name, pos, mats, isBottleneck);
+      } else {
+        createMachineStation(name, pos, mats, isBottleneck);
+      }
+
+      addHtmlLabel(name, v3(pos.x, 1.75, pos.z), "process");
+    }
+
+    createWorkers(layout, mats);
+  }
+
+  function createProcessPositions(layout, flow) {
+    var n = flow.length;
+    var positions = [];
+    var splitX = layout.splitX;
+    var mergeX = layout.mergeX;
+    var branchZ = layout.branchZ;
+    var first = v3(layout.leftX + 1.5, 0, 1.45);
+    var last = v3(layout.shipX - 0.15, 0, 1.35);
+    positions.push(first);
+
+    var bottleneckIndex = chooseBottleneckIndex(flow);
+    var middle = [];
+    for (var i = 1; i < n - 1; i++) {
+      middle.push(i);
+    }
+
+    var branchItems = [];
+    for (var j = 0; j < middle.length; j++) {
+      if (middle[j] !== bottleneckIndex) {
+        branchItems.push(middle[j]);
+      }
+    }
+
+    var branchCount = Math.max(1, branchItems.length);
+    for (var k = 0; k < branchItems.length; k++) {
+      var idx = branchItems[k];
+      var t = branchCount === 1 ? 0.5 : k / (branchCount - 1);
+      var x = splitX + 1.1 + (mergeX - splitX - 2.0) * t;
+      var z = k % 2 === 0 ? branchZ + 1.05 : -branchZ - 1.05;
+      positions[idx] = v3(x, 0, z);
+    }
+
+    if (bottleneckIndex > 0 && bottleneckIndex < n - 1) {
+      positions[bottleneckIndex] = v3(layout.inspectX, 0, 1.18);
+    }
+
+    positions[n - 1] = last;
+
+    for (var m = 0; m < n; m++) {
+      if (!positions[m]) {
+        positions[m] = v3(layout.mergeX + m * 0.45, 0, -layout.branchZ - 1.1);
+      }
+    }
+    return positions;
+  }
+
+  function createReceivingStation(name, pos, mats, isBottleneck) {
+    var group = new THREE.Group();
+    group.position.set(pos.x, 0, pos.z);
+
+    var base = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.45, 1.05), bottleneckMaterial(mats.machineGray, isBottleneck));
+    base.position.y = 0.225;
     base.castShadow = true;
     base.receiveShadow = true;
     group.add(base);
-    
-    var enclosure = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.0, 3.0), mats.white);
-    enclosure.position.y = 2.6;
-    enclosure.castShadow = true;
-    group.add(enclosure);
-    
-    var windowMesh = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.2, 0.1), mats.glass);
-    windowMesh.position.set(0, 2.6, 1.5);
-    group.add(windowMesh);
-    
-    var spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.8, 12), mats.metal);
-    spindle.position.set(0, 2.8, 0);
-    group.add(spindle);
-    
-    var tool = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.02, 0.4, 8), mats.metal);
-    tool.position.set(0, 2.2, 0);
+    collectBottleneck(base, isBottleneck);
+
+    for (var i = 0; i < 3; i++) {
+      var crate = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.28, 0.36), mats.productA.clone());
+      crate.position.set(-0.42 + i * 0.42, 0.58, 0.2 - (i % 2) * 0.38);
+      crate.castShadow = true;
+      group.add(crate);
+    }
+
+    equipmentGroup.add(group);
+  }
+
+  function createShippingStation(name, pos, mats, isBottleneck) {
+    var group = new THREE.Group();
+    group.position.set(pos.x, 0, pos.z);
+
+    var dock = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.34, 1.2), bottleneckMaterial(mats.machineBlue, isBottleneck));
+    dock.position.y = 0.17;
+    dock.castShadow = true;
+    dock.receiveShadow = true;
+    group.add(dock);
+    collectBottleneck(dock, isBottleneck);
+
+    var truck = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.62, 0.82), mats.machineGray.clone());
+    truck.position.set(0.2, 0.65, 0.12);
+    truck.castShadow = true;
+    group.add(truck);
+
+    var cab = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.52, 0.82), mats.machineYellow.clone());
+    cab.position.set(0.98, 0.6, 0.12);
+    cab.castShadow = true;
+    group.add(cab);
+
+    equipmentGroup.add(group);
+  }
+
+  function createInspectionGate(name, pos, mats, isBottleneck) {
+    var group = new THREE.Group();
+    group.position.set(pos.x, 0, pos.z);
+
+    var mat = bottleneckMaterial(mats.machineYellow, isBottleneck);
+    var postA = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.35, 0.22), mat);
+    postA.position.set(-0.52, 0.675, 0);
+    postA.castShadow = true;
+    group.add(postA);
+
+    var postB = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.35, 0.22), mat.clone());
+    postB.position.set(0.52, 0.675, 0);
+    postB.castShadow = true;
+    group.add(postB);
+
+    var top = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.22, 0.28), mat.clone());
+    top.position.set(0, 1.32, 0);
+    top.castShadow = true;
+    group.add(top);
+
+    var scanner = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.62, 24), mats.machineBlue.clone());
+    scanner.rotation.z = Math.PI / 2;
+    scanner.position.set(0, 1.02, 0);
+    scanner.castShadow = true;
+    group.add(scanner);
+
+    collectBottleneck(postA, isBottleneck);
+    collectBottleneck(postB, isBottleneck);
+    collectBottleneck(top, isBottleneck);
+
+    equipmentGroup.add(group);
+  }
+
+  function createTankStation(name, pos, mats, isBottleneck) {
+    var group = new THREE.Group();
+    group.position.set(pos.x, 0, pos.z);
+
+    var tankMat = bottleneckMaterial(mats.machineGreen, isBottleneck);
+    var tank = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.52, 1.25, 32), tankMat);
+    tank.position.y = 0.72;
+    tank.castShadow = true;
+    tank.receiveShadow = true;
+    group.add(tank);
+    collectBottleneck(tank, isBottleneck);
+
+    var cap = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.18, 32), mats.machineGray.clone());
+    cap.position.y = 1.43;
+    cap.castShadow = true;
+    group.add(cap);
+
+    var pipe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.92), mats.machineGray.clone());
+    pipe.position.set(0.48, 1.18, -0.28);
+    pipe.castShadow = true;
+    group.add(pipe);
+
+    equipmentGroup.add(group);
+  }
+
+  function createRobotStation(name, pos, mats, isBottleneck) {
+    var group = new THREE.Group();
+    group.position.set(pos.x, 0, pos.z);
+
+    var pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.32, 24), bottleneckMaterial(mats.machineBlue, isBottleneck));
+    pedestal.position.y = 0.16;
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    group.add(pedestal);
+    collectBottleneck(pedestal, isBottleneck);
+
+    var column = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.88, 20), mats.machineGray.clone());
+    column.position.y = 0.76;
+    column.castShadow = true;
+    group.add(column);
+
+    var shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.23, 24, 16), mats.machineYellow.clone());
+    shoulder.position.y = 1.23;
+    shoulder.castShadow = true;
+    group.add(shoulder);
+
+    var arm = new THREE.Group();
+    arm.position.set(0, 1.2, 0);
+    var upper = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.95), mats.machineYellow.clone());
+    upper.position.set(0.25, 0.02, -0.4);
+    upper.rotation.y = -0.35;
+    upper.castShadow = true;
+    arm.add(upper);
+
+    var lower = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.72), mats.machineBlue.clone());
+    lower.position.set(0.58, -0.28, -0.86);
+    lower.rotation.y = -0.2;
+    lower.rotation.z = 0.45;
+    lower.castShadow = true;
+    arm.add(lower);
+
+    var gripper = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.08, 0.16), mats.machineGray.clone());
+    gripper.position.set(0.78, -0.58, -1.13);
+    gripper.castShadow = true;
+    arm.add(gripper);
+
+    group.add(arm);
+    animatedRobots.push({ group: arm, baseY: arm.position.y, phase: pos.x * 0.4 + pos.z * 0.2 });
+
+    equipmentGroup.add(group);
+  }
+
+  function createMachineStation(name, pos, mats, isBottleneck) {
+    var group = new THREE.Group();
+    group.position.set(pos.x, 0, pos.z);
+
+    var body = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.82, 0.92), bottleneckMaterial(mats.machineBlue, isBottleneck));
+    body.position.y = 0.41;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+    collectBottleneck(body, isBottleneck);
+
+    var head = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.35, 0.68), mats.machineGray.clone());
+    head.position.set(0, 1.0, 0);
+    head.castShadow = true;
+    group.add(head);
+
+    var tool = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.5, 20), mats.machineYellow.clone());
+    tool.position.set(0, 0.78, -0.46);
     tool.castShadow = true;
     group.add(tool);
-    
-    var chuck = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.2, 16), mats.metal);
-    chuck.position.set(0, 1.7, 0);
-    chuck.castShadow = true;
-    group.add(chuck);
-    
-    var lightTower = buildSignalTower(mats);
-    lightTower.position.set(1.3, 3.6, 1.2);
-    group.add(lightTower);
-    
-    if (nameL.includes("プレス")) {
-      animatedObjects.push({
-        type: 'press',
-        mesh: spindle,
-        tool: tool,
-        startY: 2.8
-      });
-    } else {
-      animatedObjects.push({
-        type: 'spin',
-        mesh: tool
-      });
-    }
 
-  } else if (isCoating) {
-    var tunnel = new THREE.Mesh(new THREE.BoxGeometry(8, 2.2, 2.8), mats.metal);
-    tunnel.position.set(0, 1.4, 0);
-    tunnel.castShadow = true;
-    tunnel.receiveShadow = true;
-    group.add(tunnel);
-    
-    var ductPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.5, 12), mats.darkMetal);
-    ductPipe.position.set(0, 3.25, 0);
-    ductPipe.castShadow = true;
-    group.add(ductPipe);
-    
-    var elbow = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), mats.darkMetal);
-    elbow.position.set(0, 4.0, 0);
-    group.add(elbow);
-    
-    var horizontalPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 2, 12), mats.darkMetal);
-    horizontalPipe.rotateZ(Math.PI / 2);
-    horizontalPipe.position.set(-1, 4.0, 0);
-    horizontalPipe.castShadow = true;
-    group.add(horizontalPipe);
-    
-    var rollerL = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 2.6, 12), mats.metal);
-    rollerL.rotateX(Math.PI / 2);
-    rollerL.position.set(-4.2, 0.8, 0);
-    rollerL.castShadow = true;
-    group.add(rollerL);
-    
-    var rollerR = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 2.6, 12), mats.metal);
-    rollerR.rotateX(Math.PI / 2);
-    rollerR.position.set(4.2, 0.8, 0);
-    rollerR.castShadow = true;
-    group.add(rollerR);
-    
-    var panelPost = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 0.1), mats.darkMetal);
-    panelPost.position.set(2.5, 0.6, 1.6);
-    group.add(panelPost);
-    
-    var panelBox = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.15), mats.white);
-    panelBox.position.set(2.5, 1.3, 1.6);
-    panelBox.rotation.x = -Math.PI / 6;
-    panelBox.castShadow = true;
-    group.add(panelBox);
-    
-    animatedObjects.push({
-      type: 'spin',
-      mesh: rollerL,
-      mesh2: rollerR
-    });
-
-  } else if (isInspect) {
-    var base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.8, 3.2), mats.darkMetal);
-    base.position.y = 0.4;
-    base.castShadow = true;
-    base.receiveShadow = true;
-    group.add(base);
-    
-    var plate = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.15, 2.8), mats.darkMetal);
-    plate.position.y = 0.875;
-    group.add(plate);
-    
-    var frameGroup = new THREE.Group();
-    
-    var postL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.4, 0.4), mats.white);
-    postL.position.set(-1.2, 1.2, 0);
-    postL.castShadow = true;
-    frameGroup.add(postL);
-    
-    var postR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.4, 0.4), mats.white);
-    postR.position.set(1.2, 1.2, 0);
-    postR.castShadow = true;
-    frameGroup.add(postR);
-    
-    var beam = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.4, 0.4), mats.white);
-    beam.position.set(0, 2.4, 0);
-    beam.castShadow = true;
-    frameGroup.add(beam);
-    
-    frameGroup.position.y = 0.8;
-    group.add(frameGroup);
-    
-    var zAxis = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 0.15), mats.metal);
-    zAxis.position.set(0, 2.4, 0);
-    group.add(zAxis);
-    
-    var probe = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), mats.red);
-    probe.position.set(0, 1.7, 0);
-    group.add(probe);
-    
-    var deskGroup = new THREE.Group();
-    deskGroup.position.set(2.2, 0, 0.8);
-    
-    var deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.8), mats.wood);
-    deskTop.position.y = 0.8;
-    deskTop.castShadow = true;
-    deskGroup.add(deskTop);
-    
-    var deskLegL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.8, 0.8), mats.metal);
-    deskLegL.position.set(-0.55, 0.4, 0);
-    deskGroup.add(deskLegL);
-    
-    var deskLegR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.8, 0.8), mats.metal);
-    deskLegR.position.set(0.55, 0.4, 0);
-    deskGroup.add(deskLegR);
-    
-    var monitorBase = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), mats.darkMetal);
-    monitorBase.position.set(0, 1.0, 0);
-    deskGroup.add(monitorBase);
-    
-    var monitorScreen = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.05), mats.darkMetal);
-    monitorScreen.position.set(0, 1.25, 0);
-    monitorScreen.castShadow = true;
-    deskGroup.add(monitorScreen);
-    
-    group.add(deskGroup);
-    
-    animatedObjects.push({
-      type: 'cmm',
-      frame: frameGroup,
-      zAxis: zAxis,
-      probe: probe,
-      baseY: 2.4
-    });
-
-  } else if (isTank) {
-    var tank1 = new THREE.Group();
-    
-    var tankBody1 = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 2.5, 16), mats.metal);
-    tankBody1.position.y = 1.65;
-    tankBody1.castShadow = true;
-    tank1.add(tankBody1);
-    
-    var dome1 = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 12, 0, Math.PI*2, 0, Math.PI/2), mats.metal);
-    dome1.position.y = 2.9;
-    tank1.add(dome1);
-    
-    var legGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.6, 8);
-    var leg1 = new THREE.Mesh(legGeo, mats.darkMetal); leg1.position.set(-0.6, 0.3, -0.6); tank1.add(leg1);
-    var leg2 = new THREE.Mesh(legGeo, mats.darkMetal); leg2.position.set(0.6, 0.3, -0.6); tank1.add(leg2);
-    var leg3 = new THREE.Mesh(legGeo, mats.darkMetal); leg3.position.set(-0.6, 0.3, 0.6); tank1.add(leg3);
-    var leg4 = new THREE.Mesh(legGeo, mats.darkMetal); leg4.position.set(0.6, 0.3, 0.6); tank1.add(leg4);
-    
-    tank1.position.set(-1.2, 0, -0.5);
-    group.add(tank1);
-    
-    var tank2 = tank1.clone();
-    tank2.position.set(1.2, 0, -0.5);
-    group.add(tank2);
-    
-    var pipe1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4, 8), mats.metal);
-    pipe1.rotateZ(Math.PI / 2);
-    pipe1.position.set(0, 2.4, -0.5);
-    group.add(pipe1);
-    
-    var pipe2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8), mats.metal);
-    pipe2.position.set(0, 1.8, -0.5);
-    group.add(pipe2);
-    
-    var valve = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.08, 12), mats.red);
-    valve.rotateX(Math.PI / 2);
-    valve.position.set(0, 1.8, -0.35);
-    group.add(valve);
-    
-    var tower = buildSignalTower(mats);
-    tower.position.set(-1.2, 3.9, -0.5);
-    group.add(tower);
-
-  } else if (isAssembly) {
-    var robot = new THREE.Group();
-    
-    var basePlateObj = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 0.4, 16), mats.darkMetal);
-    basePlateObj.position.y = 0.2;
-    basePlateObj.castShadow = true;
-    robot.add(basePlateObj);
-    
-    var turret = new THREE.Group();
-    turret.position.y = 0.2;
-    basePlateObj.add(turret);
-    
-    var turretMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12), mats.yellow);
-    turretMesh.position.y = 0.15;
-    turretMesh.castShadow = true;
-    turret.add(turretMesh);
-    
-    var shoulderJoint = new THREE.Group();
-    shoulderJoint.position.set(0, 0.3, 0);
-    turret.add(shoulderJoint);
-    
-    var shoulderCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.5, 12), mats.metal);
-    shoulderCyl.rotation.z = Math.PI / 2;
-    shoulderJoint.add(shoulderCyl);
-    
-    var arm1 = new THREE.Group();
-    shoulderJoint.add(arm1);
-    
-    var arm1Mesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.4, 0.25), mats.yellow);
-    arm1Mesh.position.y = 0.7;
-    arm1Mesh.castShadow = true;
-    arm1.add(arm1Mesh);
-    
-    var elbowJoint = new THREE.Group();
-    elbowJoint.position.set(0, 1.4, 0);
-    arm1.add(elbowJoint);
-    
-    var elbowCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.4, 12), mats.metal);
-    elbowCyl.rotation.z = Math.PI / 2;
-    elbowJoint.add(elbowCyl);
-    
-    var arm2 = new THREE.Group();
-    elbowJoint.add(arm2);
-    
-    var arm2Mesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.0, 0.2), mats.yellow);
-    arm2Mesh.position.y = 0.5;
-    arm2Mesh.castShadow = true;
-    arm2.add(arm2Mesh);
-    
-    var wrist = new THREE.Group();
-    wrist.position.set(0, 1.0, 0);
-    arm2.add(wrist);
-    
-    var wristCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.2, 8), mats.metal);
-    wristCyl.position.y = 0.1;
-    wrist.add(wristCyl);
-    
-    var tool = new THREE.Group();
-    tool.position.set(0, 0.2, 0);
-    wrist.add(tool);
-    
-    var gripperBase = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.1), mats.metal);
-    tool.add(gripperBase);
-    
-    var fingerL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.05), mats.metal);
-    fingerL.position.set(-0.1, 0.1, 0);
-    tool.add(fingerL);
-    
-    var fingerR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.05), mats.metal);
-    fingerR.position.set(0.1, 0.1, 0);
-    tool.add(fingerR);
-    
-    robot.position.set(-1.0, 0, 0.2);
-    group.add(robot);
-    
-    var table = new THREE.Group();
-    var tableTop = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.15, 24), mats.metal);
-    tableTop.position.y = 0.9;
-    tableTop.castShadow = true;
-    tableTop.receiveShadow = true;
-    table.add(tableTop);
-    
-    var tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 12), mats.darkMetal);
-    tableLeg.position.y = 0.45;
-    table.add(tableLeg);
-    
-    table.position.set(1.4, 0, 0.2);
-    group.add(table);
-    
-    var work = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4), mats.blue);
-    work.position.set(1.4, 1.05, 0.2);
-    work.castShadow = true;
-    group.add(work);
-    
-    animatedObjects.push({
-      type: 'robot',
-      turret: turret,
-      shoulder: shoulderJoint,
-      elbow: elbowJoint,
-      tool: tool
-    });
-
-  } else {
-    var baseDefault = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.2, 2.2), mats.white);
-    baseDefault.position.y = 0.6;
-    baseDefault.castShadow = true;
-    baseDefault.receiveShadow = true;
-    group.add(baseDefault);
-    
-    var controller = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 0.6), mats.darkMetal);
-    controller.position.set(-1.0, 1.35, 0.8);
-    controller.castShadow = true;
-    group.add(controller);
-    
-    var box = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 1.2), mats.metal);
-    box.position.set(0.6, 1.4, -0.2);
-    box.castShadow = true;
-    group.add(box);
+    equipmentGroup.add(group);
   }
-  
-  return group;
-}
 
-function buildAGV(startX, totalW, z, mats, group) {
-  var agv = new THREE.Group();
-  
-  var agvBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.8), mats.yellow);
-  agvBody.position.y = 0.25;
-  agvBody.castShadow = true;
-  agv.add(agvBody);
-  
-  var wheelGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.1, 8);
-  wheelGeo.rotateX(Math.PI / 2);
-  
-  var wheelFL = new THREE.Mesh(wheelGeo, mats.darkMetal); wheelFL.position.set(-0.4, 0.12, -0.42); agv.add(wheelFL);
-  var wheelFR = new THREE.Mesh(wheelGeo, mats.darkMetal); wheelFR.position.set(-0.4, 0.12, 0.42); agv.add(wheelFR);
-  var wheelBL = new THREE.Mesh(wheelGeo, mats.darkMetal); wheelBL.position.set(0.4, 0.12, -0.42); agv.add(wheelBL);
-  var wheelBR = new THREE.Mesh(wheelGeo, mats.darkMetal); wheelBR.position.set(0.4, 0.12, 0.42); agv.add(wheelBR);
-  
-  var cargo = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.6), mats.orange);
-  cargo.position.set(0, 0.6, 0);
-  cargo.castShadow = true;
-  agv.add(cargo);
-  
-  var light = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 8), new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xffaa00, emissiveIntensity: 1.0 }));
-  light.position.set(0.4, 0.46, 0);
-  agv.add(light);
-  
-  agv.position.set(startX, 0, z);
-  group.add(agv);
-  
-  animatedObjects.push({
-    type: 'agv',
-    mesh: agv,
-    light: light,
-    startX: startX,
-    totalW: totalW,
-    speed: 2.0,
-    dir: 1
-  });
-}
+  function createCleanRoom(name, pos, mats) {
+    var room = new THREE.Mesh(new THREE.BoxGeometry(1.95, 1.85, 1.72), mats.cleanGlass.clone());
+    room.position.set(pos.x, 0.925, pos.z);
+    room.castShadow = false;
+    room.receiveShadow = false;
+    equipmentGroup.add(room);
 
-function drawFactory(template, order) {
-  if (!mount || !scene) return;
-  
-  clearGroup(factoryGroup);
-  animatedObjects = [];
-  
-  var processFlow = template.processFlow || [];
-  var cleanZones = template.cleanZones || [];
-  var n = order.length;
-  
-  var isDark = document.documentElement.dataset.theme === 'dark' ||
-    (!document.documentElement.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  
-  var mats = {
-    metal: new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.8, roughness: 0.2 }),
-    darkMetal: new THREE.MeshStandardMaterial({ color: 0x374151, metalness: 0.6, roughness: 0.4 }),
-    yellow: new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.4 }),
-    red: new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 }),
-    green: new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.4 }),
-    blue: new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 }),
-    orange: new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 }),
-    white: new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.3 }),
-    glass: new THREE.MeshPhysicalMaterial({ color: 0xbfdbfe, transparent: true, opacity: 0.2, roughness: 0.1, transmission: 0.6, thickness: 0.5 }),
-    cleanFloor: new THREE.MeshStandardMaterial({ color: 0x60a5fa, roughness: 0.5 }),
-    normalFloor: new THREE.MeshStandardMaterial({ color: isDark ? 0x2e3035 : 0xd1d5db, roughness: 0.7 }),
-    wood: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 }),
-    steelBeam: new THREE.MeshStandardMaterial({ color: isDark ? 0x374151 : 0x6b7280, metalness: 0.7, roughness: 0.3 })
-  };
-  
-  var zoneW = 12;
-  var zoneD = 14;
-  var totalW = n * zoneW;
-  var startX = - (totalW - zoneW) / 2;
-  
-  var floorGeo = new THREE.BoxGeometry(totalW + 4, 0.2, zoneD + 4);
-  var floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: isDark ? 0x1f2023 : 0xe5e7eb, roughness: 0.9 }));
-  floorMesh.position.y = -0.1;
-  floorMesh.receiveShadow = true;
-  factoryGroup.add(floorMesh);
-  
-  var lineGeo = new THREE.BoxGeometry(totalW, 0.02, 0.15);
-  var yellowLine = new THREE.Mesh(lineGeo, mats.yellow);
-  yellowLine.position.set(0, 0.01, zoneD / 2 - 1);
-  factoryGroup.add(yellowLine);
-  
-  for (var i = 0; i < n; i++) {
-    var flowIdx = order[i];
-    var procName = processFlow[flowIdx];
-    var isClean = cleanZones.includes(procName);
-    var x = startX + i * zoneW;
-    
-    var pFloorGeo = new THREE.BoxGeometry(zoneW - 0.4, 0.05, zoneD - 3);
-    var pFloor = new THREE.Mesh(pFloorGeo, isClean ? mats.cleanFloor : mats.normalFloor);
-    pFloor.position.set(x, 0.025, -1);
-    pFloor.receiveShadow = true;
-    factoryGroup.add(pFloor);
-    
-    var machine = createMachine(procName, mats, isClean);
-    machine.position.set(x, 0, -1);
-    factoryGroup.add(machine);
-    
-    var labelTex = createLabelTexture(procName, isDark);
-    var labelMat = new THREE.SpriteMaterial({ map: labelTex });
-    var labelSprite = new THREE.Sprite(labelMat);
-    labelSprite.position.set(x, 5.2, -1);
-    labelSprite.scale.set(4.5, 1.125, 1);
-    factoryGroup.add(labelSprite);
-    
-    if (isClean) {
-      buildCleanRoom(x, zoneW - 0.2, zoneD - 2.8, 6.5, mats, factoryGroup);
+    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(room.geometry), mats.cleanEdge.clone());
+    edges.position.copy(room.position);
+    equipmentGroup.add(edges);
+  }
+
+  function createWorkers(layout, mats) {
+    createWorker(v3(layout.splitX - 1.0, 0, layout.branchZ + 1.95), mats);
+    createWorker(v3(layout.mergeX + 0.7, 0, -layout.branchZ - 1.85), mats);
+    createWorker(v3(layout.packX - 0.7, 0, 1.45), mats);
+  }
+
+  function createWorker(pos, mats) {
+    var group = new THREE.Group();
+    group.position.set(pos.x, 0, pos.z);
+
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.62, 18), mats.workerBody.clone());
+    body.position.y = 0.48;
+    body.castShadow = true;
+    group.add(body);
+
+    var head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 24, 16), mats.workerHead.clone());
+    head.position.y = 0.9;
+    head.castShadow = true;
+    group.add(head);
+
+    var helmet = new THREE.Mesh(new THREE.SphereGeometry(0.19, 24, 8, 0, Math.PI * 2, 0, Math.PI / 2), mats.machineYellow.clone());
+    helmet.position.y = 0.99;
+    helmet.castShadow = true;
+    group.add(helmet);
+
+    equipmentGroup.add(group);
+  }
+
+  function createWarehouseAndShipping(layout, mats) {
+    createShelf(v3(layout.leftX + 1.9, 0, -layout.reworkZ + 0.72), mats);
+    createShelf(v3(layout.leftX + 3.0, 0, -layout.reworkZ + 0.72), mats);
+    createShelf(v3(layout.shipX - 0.8, 0, -1.65), mats);
+  }
+
+  function createShelf(pos, mats) {
+    var group = new THREE.Group();
+    group.position.set(pos.x, 0, pos.z);
+
+    for (var i = 0; i < 3; i++) {
+      var shelf = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 0.42), mats.machineGray.clone());
+      shelf.position.set(0, 0.34 + i * 0.36, 0);
+      shelf.castShadow = true;
+      group.add(shelf);
     }
-    
-    if (i < n - 1) {
-      var conveyorX = x + zoneW / 2;
-      buildConveyor(conveyorX, -1, mats, factoryGroup);
+
+    for (var p = 0; p < 4; p++) {
+      var post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), mats.machineGray.clone());
+      post.position.set(p < 2 ? -0.48 : 0.48, 0.55, p % 2 === 0 ? -0.2 : 0.2);
+      post.castShadow = true;
+      group.add(post);
     }
-    
-    buildColumn(x - zoneW / 2, zoneD / 2, 7.5, mats.steelBeam, factoryGroup);
-    buildColumn(x - zoneW / 2, -zoneD / 2, 7.5, mats.steelBeam, factoryGroup);
-    
-    if (i === n - 1) {
-      buildColumn(x + zoneW / 2, zoneD / 2, 7.5, mats.steelBeam, factoryGroup);
-      buildColumn(x + zoneW / 2, -zoneD / 2, 7.5, mats.steelBeam, factoryGroup);
+
+    for (var c = 0; c < 4; c++) {
+      var box = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.28), mats.productA.clone());
+      box.position.set(-0.28 + (c % 2) * 0.56, 0.48 + Math.floor(c / 2) * 0.36, -0.02);
+      box.castShadow = true;
+      group.add(box);
+    }
+
+    equipmentGroup.add(group);
+  }
+
+  function createAgv(layout, mats) {
+    agvPath = layout.paths.agv;
+    agvProgress = 0;
+
+    agvGroup = new THREE.Group();
+    var body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.22, 0.48), mats.agv.clone());
+    body.position.y = 0.2;
+    body.castShadow = true;
+    agvGroup.add(body);
+
+    var load = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 0.34), mats.productB.clone());
+    load.position.y = 0.45;
+    load.castShadow = true;
+    agvGroup.add(load);
+
+    for (var i = 0; i < 4; i++) {
+      var wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.08, 18), mats.darkRubber.clone());
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(i < 2 ? -0.25 : 0.25, 0.09, i % 2 === 0 ? -0.25 : 0.25);
+      wheel.castShadow = true;
+      agvGroup.add(wheel);
+    }
+
+    if (agvPath.length) {
+      agvGroup.position.set(agvPath[0].x, 0, agvPath[0].z);
+    }
+    equipmentGroup.add(agvGroup);
+
+    createAgvGuide(layout, mats);
+  }
+
+  function createAgvGuide(layout, mats) {
+    var mat = new THREE.MeshBasicMaterial({ color: 0xe0a22a, transparent: true, opacity: 0.55 });
+    for (var i = 0; i < layout.paths.agv.length - 1; i++) {
+      var a = layout.paths.agv[i];
+      var b = layout.paths.agv[i + 1];
+      var dx = b.x - a.x;
+      var dz = b.z - a.z;
+      var len = Math.sqrt(dx * dx + dz * dz);
+      var count = Math.max(2, Math.floor(len / 0.65));
+      for (var j = 0; j < count; j += 2) {
+        var t = (j + 0.5) / count;
+        var dash = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.018, 0.06), mat.clone());
+        dash.position.set(a.x + dx * t, 0.115, a.z + dz * t);
+        dash.rotation.y = -Math.atan2(dz, dx);
+        equipmentGroup.add(dash);
+      }
     }
   }
-  
-  buildBeamsAndTrusses(startX, zoneW, n, zoneD, 7.5, mats.steelBeam, factoryGroup);
-  
-  buildAGV(startX, totalW, zoneD / 2 - 0.5, mats, factoryGroup);
-  
-  fitCamera(n);
-  updateLightShadow(n);
-}
 
-var prevTime = performance.now();
+  function createProducts(layout, mats) {
+    var paths = createProductPaths(layout);
+    var productGeom = new THREE.BoxGeometry(0.34, 0.28, 0.34);
+    for (var i = 0; i < 12; i++) {
+      var mat = i % 3 === 0 ? mats.productB.clone() : mats.productA.clone();
+      var mesh = new THREE.Mesh(productGeom.clone(), mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      var chosenPath = paths[i % paths.length];
+      var total = pathLength(chosenPath);
+      movingProducts.push({
+        mesh: mesh,
+        path: chosenPath,
+        total: total,
+        offset: total * i / 12,
+        speed: 1.15 + (i % 4) * 0.12
+      });
+      equipmentGroup.add(mesh);
+    }
+  }
 
-function animate() {
-  requestAnimationFrame(animate);
-  
-  updateTheme();
-  
-  if (controls) {
+  function createProductPaths(layout) {
+    var p = layout.points;
+    var aNormal = [p.rawStart, p.split, p.aUp, p.aRun, p.aMerge, p.inspection, p.afterInspection, p.pack, p.ship];
+    var bNormal = [p.rawStart, p.split, p.bDown, p.bRun, p.bMerge, p.inspection, p.afterInspection, p.pack, p.ship];
+    var aRework = [p.rawStart, p.split, p.aUp, p.aRun, p.aMerge, p.inspection, p.afterInspection, p.reworkDrop, p.reworkRun, p.reworkLift, p.pack, p.ship];
+    var bRework = [p.rawStart, p.split, p.bDown, p.bRun, p.bMerge, p.inspection, p.afterInspection, p.reworkDrop, p.reworkRun, p.reworkLift, p.pack, p.ship];
+    return [aNormal, bNormal, aNormal, bNormal, aRework, bRework];
+  }
+
+  function resetMovingProducts() {
+    for (var i = 0; i < movingProducts.length; i++) {
+      var item = movingProducts[i];
+      var pos = pointAlongPath(item.path, item.offset % item.total);
+      item.mesh.position.set(pos.x, 0.39, pos.z);
+    }
+    if (agvGroup && agvPath.length) {
+      agvGroup.position.set(agvPath[0].x, 0, agvPath[0].z);
+    }
+  }
+
+  function calculateMetrics(layout, flow, cleanZones) {
+    var paths = layout.paths;
+    var totalLength = pathLength(paths.infeed) + pathLength(paths.branchA) + pathLength(paths.branchB) + pathLength(paths.toInspection) + pathLength(paths.normal) + pathLength(paths.rework) * 0.42;
+    var inspectionCount = 0;
+    for (var i = 0; i < flow.length; i++) {
+      if (isInspectionName(flow[i])) {
+        inspectionCount += 1;
+      }
+    }
+    inspectionCount = Math.max(1, inspectionCount);
+    var cleanCount = cleanZones ? cleanZones.length : 0;
+    var inefficiency = layout.inefficientTurns + totalLength / 18 + cleanCount * 0.25;
+    var workerDistance = Math.round(totalLength * 3.1 + flow.length * 4.6 + (layout.optimized ? -10 : 8));
+    var leadTime = Math.round(totalLength * 1.55 + flow.length * 6.4 + cleanCount * 2.4 + inefficiency * 2.8);
+    var bottleneckRisk = clamp(Math.round(22 + inefficiency * 5.2 - inspectionCount * 4.5 - (layout.optimized ? 18 : 0)), 6, 88);
+    var throughput = clamp(Math.round(145 + inspectionCount * 22 + (layout.optimized ? 38 : 0) - totalLength * 1.1 - bottleneckRisk * 0.36), 55, 260);
+    var layoutScore = clamp(Math.round(92 - totalLength * 0.9 - bottleneckRisk * 0.34 + throughput * 0.08 + (layout.optimized ? 16 : 0)), 35, 98);
+
+    return {
+      totalLength: totalLength,
+      layoutScore: layoutScore,
+      leadTime: leadTime,
+      throughput: throughput,
+      bottleneckRisk: bottleneckRisk,
+      workerDistance: workerDistance
+    };
+  }
+
+  function updateMetricsPanel(metrics) {
+    if (!metrics) {
+      return;
+    }
+    metricsNodes.layoutScore.textContent = String(metrics.layoutScore) + " / 100";
+    metricsNodes.leadTime.textContent = String(metrics.leadTime) + " min";
+    metricsNodes.throughput.textContent = String(metrics.throughput) + " / h";
+    metricsNodes.bottleneckRisk.textContent = String(metrics.bottleneckRisk) + "%";
+    metricsNodes.workerDistance.textContent = String(metrics.workerDistance) + " m";
+  }
+
+  function chooseBottleneckIndex(flow) {
+    var start = Math.floor(flow.length * 0.48);
+    var fallback = Math.max(1, flow.length - 2);
+    for (var i = start; i < flow.length; i++) {
+      if (isInspectionName(flow[i])) {
+        return i;
+      }
+    }
+    for (var j = start; j < flow.length; j++) {
+      if (/検|試|測|評価|化成|inspection|test|qa|qc/i.test(String(flow[j]))) {
+        return j;
+      }
+    }
+    return fallback;
+  }
+
+  function isReceivingName(name) {
+    return /受入|入荷|原材|材料|receiv|inbound|raw/i.test(String(name));
+  }
+
+  function isShippingName(name) {
+    return /出荷|発送|梱包済|ship|outbound|dispatch/i.test(String(name));
+  }
+
+  function isInspectionName(name) {
+    return /検査|試験|測定|三次元|外観|品質|評価|化成|inspection|test|qa|qc|measure/i.test(String(name));
+  }
+
+  function isTankName(name) {
+    return /洗浄|乾燥|塗工|注液|混練|薬|液|水|tank|coat|dry|fill|wash/i.test(String(name));
+  }
+
+  function bottleneckMaterial(base, isBottleneck) {
+    var mat = base.clone();
+    if (isBottleneck) {
+      mat.emissive = new THREE.Color(0x7f0808);
+      mat.emissiveIntensity = 0.25;
+    }
+    return mat;
+  }
+
+  function collectBottleneck(mesh, isBottleneck) {
+    if (isBottleneck && mesh && mesh.material) {
+      bottleneckMeshes.push(mesh);
+    }
+  }
+
+  function clearEquipment() {
+    disposeObject(equipmentGroup);
+    scene.remove(equipmentGroup);
+    equipmentGroup = new THREE.Group();
+    scene.add(equipmentGroup);
+    movingProducts = [];
+    animatedRobots = [];
+    bottleneckMeshes = [];
+    agvGroup = null;
+    agvPath = [];
+  }
+
+  function disposeObject(obj) {
+    if (!obj) {
+      return;
+    }
+    obj.traverse(function (child) {
+      if (child.geometry && child.geometry.dispose) {
+        child.geometry.dispose();
+      }
+      if (child.material) {
+        if (Array.isArray(child.material)) {
+          for (var i = 0; i < child.material.length; i++) {
+            if (child.material[i] && child.material[i].dispose) {
+              child.material[i].dispose();
+            }
+          }
+        } else if (child.material.dispose) {
+          child.material.dispose();
+        }
+      }
+    });
+    while (obj.children && obj.children.length) {
+      obj.remove(obj.children[0]);
+    }
+  }
+
+  function clearLabels() {
+    labelItems = [];
+    if (labelLayer) {
+      while (labelLayer.firstChild) {
+        labelLayer.removeChild(labelLayer.firstChild);
+      }
+    }
+  }
+
+  function addHtmlLabel(text, position, kind) {
+    if (!labelLayer) {
+      return;
+    }
+    var el = document.createElement("div");
+    el.textContent = text;
+    el.style.position = "absolute";
+    el.style.transform = "translate(-50%, -100%)";
+    el.style.padding = kind === "zone" ? "2px 6px" : "3px 7px";
+    el.style.borderRadius = "6px";
+    el.style.fontSize = kind === "zone" ? "10px" : "11px";
+    el.style.fontWeight = kind === "zone" ? "700" : "650";
+    el.style.whiteSpace = "nowrap";
+    el.style.maxWidth = "120px";
+    el.style.overflow = "hidden";
+    el.style.textOverflow = "ellipsis";
+    el.style.letterSpacing = "0";
+    el.style.color = isDarkTheme() ? "#f3f7ff" : "#102033";
+    el.style.background = kind === "zone" ? (isDarkTheme() ? "rgba(20,30,42,0.48)" : "rgba(255,255,255,0.58)") : (isDarkTheme() ? "rgba(18,27,38,0.78)" : "rgba(255,255,255,0.82)");
+    el.style.border = isDarkTheme() ? "1px solid rgba(220,235,255,0.18)" : "1px solid rgba(30,44,58,0.12)";
+    el.style.boxShadow = "0 3px 12px rgba(0,0,0,0.12)";
+    labelLayer.appendChild(el);
+    labelItems.push({ el: el, position: position.clone() });
+  }
+
+  function updateLabels() {
+    if (!labelLayer || !labelItems.length) {
+      return;
+    }
+    var w = renderer.domElement.clientWidth || mount.clientWidth || 1;
+    var h = renderer.domElement.clientHeight || mount.clientHeight || 1;
+    for (var i = 0; i < labelItems.length; i++) {
+      var item = labelItems[i];
+      var p = item.position.clone();
+      p.project(camera);
+      if (p.z < -1 || p.z > 1 || p.x < -1.25 || p.x > 1.25 || p.y < -1.25 || p.y > 1.25) {
+        item.el.style.display = "none";
+      } else {
+        item.el.style.display = "block";
+        item.el.style.left = String((p.x * 0.5 + 0.5) * w) + "px";
+        item.el.style.top = String((-p.y * 0.5 + 0.5) * h) + "px";
+      }
+    }
+  }
+
+  function fitCameraToFactory(applyNow) {
+    var box = new THREE.Box3().setFromObject(equipmentGroup);
+    if (!isFinite(box.min.x) || !isFinite(box.max.x)) {
+      box = new THREE.Box3(new THREE.Vector3(-10, 0, -6), new THREE.Vector3(10, 4, 6));
+    }
+    var size = new THREE.Vector3();
+    var center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    center.y = Math.max(0.45, size.y * 0.22);
+
+    var maxSize = Math.max(size.x, size.z, size.y * 2.4, 8);
+    var fov = camera.fov * Math.PI / 180;
+    var distance = maxSize / (2 * Math.tan(fov / 2)) * 1.04;
+    var direction = new THREE.Vector3(0.76, 0.58, 0.92).normalize();
+
+    defaultTarget.copy(center);
+    defaultCameraPosition.copy(center).addScaledVector(direction, distance);
+    camera.near = 0.05;
+    camera.far = Math.max(250, distance * 5);
+    camera.updateProjectionMatrix();
+    controls.minDistance = Math.max(2.2, maxSize * 0.16);
+    controls.maxDistance = Math.max(60, distance * 2.6);
+
+    if (applyNow) {
+      camera.position.copy(defaultCameraPosition);
+      controls.target.copy(defaultTarget);
+      camera.lookAt(defaultTarget);
+      controls.update();
+    }
+  }
+
+  function updateDefaultCameraPose() {
+    var box = new THREE.Box3().setFromObject(equipmentGroup);
+    if (!isFinite(box.min.x) || !isFinite(box.max.x)) {
+      return;
+    }
+    var size = new THREE.Vector3();
+    var center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    center.y = Math.max(0.45, size.y * 0.22);
+    var maxSize = Math.max(size.x, size.z, size.y * 2.4, 8);
+    var fov = camera.fov * Math.PI / 180;
+    var distance = maxSize / (2 * Math.tan(fov / 2)) * 1.04;
+    var direction = new THREE.Vector3(0.76, 0.58, 0.92).normalize();
+    defaultTarget.copy(center);
+    defaultCameraPosition.copy(center).addScaledVector(direction, distance);
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    var delta = Math.min(animationClock.getDelta(), 0.05);
     controls.update();
-  }
-  
-  var time = performance.now();
-  var delta = (time - prevTime) / 1000;
-  prevTime = time;
-  
-  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  
-  if (renderer && scene && camera) {
-    if (!reducedMotion) {
-      updateAnimations(time / 1000, delta);
-    }
+    updateSimulation(delta);
+    updateLabels();
     renderer.render(scene, camera);
   }
-}
 
-function updateAnimations(t, delta) {
-  animatedObjects.forEach(function(obj) {
-    if (obj.type === 'spin') {
-      obj.mesh.rotation.y += delta * 4;
-      if (obj.mesh2) obj.mesh2.rotation.y += delta * 4;
-    } else if (obj.type === 'conveyor') {
-      obj.mesh.children.forEach(function(roller) {
-        roller.rotation.y += delta * 5;
-      });
-    } else if (obj.type === 'press') {
-      var offset = Math.sin(t * 6) * 0.25;
-      obj.mesh.position.y = obj.startY + offset;
-      obj.tool.position.y = obj.startY - 0.6 + offset;
-    } else if (obj.type === 'patlite') {
-      var pulseRed = 0.5 + 0.5 * Math.sin(t * 10);
-      obj.red.material.emissiveIntensity = pulseRed * 1.5;
-      var pulseGreen = 0.5 + 0.5 * Math.sin(t * 2 + 1);
-      obj.green.material.emissiveIntensity = pulseGreen * 0.3;
-    } else if (obj.type === 'glow') {
-      var glow = 1.0 + 0.4 * Math.sin(t * 3.5);
-      obj.mesh.material.emissiveIntensity = glow;
-      if (obj.mesh2) obj.mesh2.material.emissiveIntensity = glow;
-    } else if (obj.type === 'agv') {
-      var leftBound = obj.startX;
-      var rightBound = obj.startX + obj.totalW;
-      
-      obj.mesh.position.x += obj.dir * obj.speed * delta;
-      
-      if (obj.mesh.position.x > rightBound) {
-        obj.mesh.position.x = rightBound;
-        obj.dir = -1;
-        obj.mesh.rotation.y = Math.PI;
-      } else if (obj.mesh.position.x < leftBound) {
-        obj.mesh.position.x = leftBound;
-        obj.dir = 1;
-        obj.mesh.rotation.y = 0;
+  function updateSimulation(delta) {
+    var i;
+    if (animationEnabled && !reducedMotion) {
+      simulationTime += delta;
+      for (i = 0; i < movingProducts.length; i++) {
+        var item = movingProducts[i];
+        var tot = item.total > 0 ? item.total : 1; // 経路長0での %0→NaN を防止（agyレビュー#10）
+        var d = (simulationTime * item.speed + item.offset) % tot;
+        var pos = pointAlongPath(item.path, d);
+        var next = pointAlongPath(item.path, (d + 0.08) % tot);
+        item.mesh.position.set(pos.x, 0.39, pos.z);
+        item.mesh.rotation.y = -Math.atan2(next.z - pos.z, next.x - pos.x);
       }
-      
-      obj.light.material.emissiveIntensity = 0.5 + 0.5 * Math.sin(t * 14);
-    } else if (obj.type === 'cmm') {
-      obj.frame.position.z = Math.sin(t * 1.2) * 0.7;
-      obj.zAxis.position.x = Math.cos(t * 1.8) * 0.5;
-      var py = Math.sin(t * 2.5) * 0.25;
-      obj.zAxis.position.y = obj.baseY + py;
-      obj.probe.position.x = obj.zAxis.position.x;
-      obj.probe.position.z = obj.frame.position.z;
-      obj.probe.position.y = obj.baseY - 0.7 + py;
-    } else if (obj.type === 'robot') {
-      var angle1 = Math.sin(t * 1.2) * 0.5;
-      var angle2 = (Math.sin(t * 1.8) * 0.25) - 0.25;
-      var angle3 = (Math.cos(t * 2.2) * 0.3) + 0.35;
-      
-      obj.turret.rotation.y = angle1;
-      obj.shoulder.rotation.z = angle2;
-      obj.elbow.rotation.z = angle3;
-      obj.tool.rotation.y = t * 3;
-    }
-  });
-}
 
-window.CaddiPlant3D = {
-  render: function(template, order) {
-    lastTemplate = template;
-    lastOrder = order;
-    if (scene && factoryGroup) {
-      drawFactory(template, order);
+      if (agvGroup && agvPath.length > 1) {
+        agvProgress += delta * 0.65;
+        var agvTotal = pathLength(agvPath);
+        var cycle = agvTotal * 2;
+        var d2 = (agvProgress % cycle);
+        if (d2 > agvTotal) {
+          d2 = cycle - d2;
+        }
+        var agvPos = pointAlongPath(agvPath, d2);
+        var agvNext = pointAlongPath(agvPath, Math.min(agvTotal, d2 + 0.08));
+        agvGroup.position.set(agvPos.x, 0, agvPos.z);
+        agvGroup.rotation.y = -Math.atan2(agvNext.z - agvPos.z, agvNext.x - agvPos.x);
+      }
+
+      for (i = 0; i < animatedRobots.length; i++) {
+        var robot = animatedRobots[i];
+        robot.group.position.y = robot.baseY + Math.sin(simulationTime * 2.4 + robot.phase) * 0.09;
+        robot.group.rotation.y = Math.sin(simulationTime * 1.35 + robot.phase) * 0.22;
+      }
+    }
+
+    var blink = 0.32 + Math.sin((simulationTime + performance.now() * 0.001) * 4.5) * 0.28;
+    for (i = 0; i < bottleneckMeshes.length; i++) {
+      var mat = bottleneckMeshes[i].material;
+      if (mat && mat.emissive) {
+        mat.emissive.setHex(0xff1f1f);
+        mat.emissiveIntensity = blink;
+      }
     }
   }
-};
 
-var st = window.CaddiPlantState && window.CaddiPlantState();
-if (st && st.tmpl) {
-  window.CaddiPlant3D.render(st.tmpl, st.order);
+  function pointAlongPath(path, distance) {
+    if (!path || path.length === 0) {
+      return new THREE.Vector3();
+    }
+    if (path.length === 1) {
+      return path[0].clone();
+    }
+    var remaining = distance;
+    for (var i = 0; i < path.length - 1; i++) {
+      var a = path[i];
+      var b = path[i + 1];
+      var seg = distance2d(a, b);
+      if (remaining <= seg || i === path.length - 2) {
+        var t = seg > 0 ? clamp(remaining / seg, 0, 1) : 0;
+        return new THREE.Vector3(
+          a.x + (b.x - a.x) * t,
+          0,
+          a.z + (b.z - a.z) * t
+        );
+      }
+      remaining -= seg;
+    }
+    return path[path.length - 1].clone();
+  }
+
+  function pathLength(path) {
+    var len = 0;
+    if (!path) {
+      return 0;
+    }
+    for (var i = 0; i < path.length - 1; i++) {
+      len += distance2d(path[i], path[i + 1]);
+    }
+    return len;
+  }
+
+  function distance2d(a, b) {
+    var dx = b.x - a.x;
+    var dz = b.z - a.z;
+    return Math.sqrt(dx * dx + dz * dz);
+  }
+
+  function v3(x, y, z) {
+    return new THREE.Vector3(x, y, z);
+  }
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
 }
 </script>
