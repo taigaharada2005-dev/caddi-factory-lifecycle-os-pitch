@@ -1359,13 +1359,12 @@
 
   function computeImpact(t) {
     var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
-    var capex = t.capexOku * capexMult();
-    var bm = t.buildMonths + buildMonthsAdd();
-    var unitsMan = a.units * (VOL_MULT[state.volume] || 1);            // 万個/月
-    var revYear = unitsMan * 10000 * 12 * a.price / 1e8;               // 億円/年
-    var margin = 0.11
-      + (state.shift === "auto" ? 0.03 : state.shift === "3" ? 0.01 : 0)
-      + (state.location === "sea" || state.location === "india" ? 0.03 : state.location === "na" ? -0.01 : 0);
+    var rec = runDesignSearch(mkDecInput(t, dsPriority())).best;       // 推奨案（案比較テーブルと同一シナリオ）
+    var capex = rec.capexOku;
+    var bm = rec.months;
+    var unitsMan = rec.monthlyCap / 10000;                             // 万個/月（推奨案の月産能力）
+    var revYear = rec.monthlyCap * 12 * a.price / 1e8;                 // 億円/年
+    var margin = marginOf();
     var cfYear = revYear * margin;                                      // 億円/年（フル稼働時）
     // 月次で累積CF：着工月に投資、buildMonths後に生産開始、rampUpMonthsかけて漸増
     var months = 120, cum = -capex, series = [{ m: 0, v: cum }];
@@ -1373,19 +1372,13 @@
       var p = 0;
       if (m > bm) {
         var since = m - bm;
-        p = Math.min(1, since / Math.max(1, t.rampUpMonths));
+        p = Math.min(1, since / 4);
       }
       cum += (cfYear / 12) * p;
       if (m % 12 === 0) series.push({ m: m, v: cum });
     }
-    // 黒字化点（月次で補間）
-    var payback = null, c2 = -capex;
-    for (var mm = 1; mm <= months; mm++) {
-      var pp = mm > bm ? Math.min(1, (mm - bm) / Math.max(1, t.rampUpMonths)) : 0;
-      var step = (cfYear / 12) * pp, prev = c2;
-      c2 += step;
-      if (prev < 0 && c2 >= 0) { payback = (mm - 1 + (0 - prev) / step) / 12; break; }
-    }
+    // 黒字化点：案比較テーブルの推奨案と同一計算(paybackOf)で整合させる
+    var payback = paybackOf(capex, rec.monthlyCap, bm, a.price, margin);
     var n = t.processFlow.length, floorM = n * 8 * 24;
     var jobs = Math.round(floorM / 60 * (state.shift === "auto" ? 0.35 : state.shift === "3" ? 1.35 : 1));
     var co2 = Math.round(floorM * 0.12 * (t.cleanZones.length ? 1.6 : 1) * (GRID_CO2[state.location] || 1));
