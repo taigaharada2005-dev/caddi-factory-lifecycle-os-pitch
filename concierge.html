@@ -1064,6 +1064,54 @@
   fill: var(--ink);
   font-size: 9px;
 }
+
+.bpx-sld-src rect, .bpx-sld-src circle {
+  fill: var(--panel);
+  stroke: var(--steel-deep);
+  stroke-width: 1.1;
+}
+.bpx-sld-src text {
+  fill: var(--ink);
+  font-size: 10px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.bpx-sld-src line { stroke: var(--steel-deep); stroke-width: 1.3; }
+.bpx-sld-bus { stroke: var(--accent); stroke-width: 2; }
+.bpx-sld-panel {
+  fill: var(--panel-deep);
+  stroke: var(--accent-deep);
+  stroke-width: 1.2;
+}
+.bpx-sld-panel-label {
+  fill: var(--accent-deep);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 700;
+  font-size: 10px;
+}
+.bpx-sld-group-label {
+  fill: var(--steel);
+  font-size: 8.5px;
+}
+.bpx-sld-brk {
+  fill: var(--panel);
+  stroke: var(--steel-deep);
+  stroke-width: 1;
+}
+.bpx-sld-item {
+  fill: var(--ink);
+  font-size: 9.5px;
+}
+.bpx-sld-wire line { stroke: var(--steel-deep); stroke-width: 1; }
+.bpx-sld-legend rect {
+  fill: var(--panel-deep);
+  stroke: var(--line-strong);
+  stroke-width: 0.9;
+}
+.bpx-sld-legend text {
+  fill: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+}
 </style>
 
 <div class="wrap">
@@ -1234,6 +1282,14 @@
           <span class="pmethod-note" id="pmethodNote"></span>
         </div>
         <div class="bpwrap"><div id="blueprint"></div></div>
+      </div>
+
+      <div class="floorcard phasecard" data-phase="blueprint">
+        <div class="fhead">
+          <span class="ttl">電気設備 単線結線図（系統図）</span>
+          <span class="hint3d">受電〜分電盤〜各設備までの電力系統</span>
+        </div>
+        <div class="bpwrap"><div id="sld"></div></div>
       </div>
 
       <div class="specwrap">
@@ -1555,6 +1611,7 @@
     if (window.CaddiPlant3D) window.CaddiPlant3D.render(t, order);
     // 俯瞰図面を再生成
     renderBlueprint(t, order);
+    renderSld(t, order);
   }
 
   // ---- 俯瞰設計図面（SVG自動生成） ----
@@ -2319,6 +2376,75 @@
     var nx = 752, ny = 398;
     s.push('<g class="bpx-north"><line x1="' + nx + '" y1="' + (ny + 25) + '" x2="' + nx + '" y2="' + (ny - 20) + '"/><polygon points="' + (nx - 6) + "," + (ny - 9) + " " + nx + "," + (ny - 24) + " " + (nx + 6) + "," + (ny - 9) + '"/><text x="' + nx + '" y="' + (ny + 39) + '" text-anchor="middle">N</text></g>');
     s.push('<text class="bpx-scale" x="620" y="486">S=1:200</text>');
+  }
+
+  // ==== 電気設備 単線結線図（系統図） ====
+  function sldGroupFor(name) {
+    if (bpxHas(name, ["検査", "測定", "試験", "洗浄", "タンク", "塗装", "調合", "乾燥", "炉", "熱処理"])) return "L-1";
+    if (bpxHas(name, ["受入", "出荷", "梱包", "包装", "倉庫", "材料", "保管"])) return "L-2";
+    return "P-1";
+  }
+  function renderSld(t, order) {
+    var host = document.getElementById("sld");
+    if (!host) return;
+    var flow = bpxOrderedItems(t || {}, order || []);
+    var W = 1060, H = 420;
+    var groups = { "L-1": [], "L-2": [], "P-1": [] };
+    for (var i = 0; i < flow.length; i++) {
+      var nm = flow[i].name || "";
+      groups[sldGroupFor(nm)].push(nm);
+    }
+    var groupKeys = ["L-1", "L-2", "P-1"];
+    var groupLabel = { "L-1": "動力盤 L-1（検査・プロセス系）", "L-2": "動力盤 L-2（受入・出荷系）", "P-1": "動力盤 P-1（組立・搬送系）" };
+    var s = [];
+    s.push('<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" class="bpx-svg" role="img" aria-label="単線結線図">');
+    s.push(bpxRect("bpx-sheet-border", 10, 10, W - 20, H - 20));
+    s.push(bpxRect("bpx-sheet-inner", 18, 18, W - 36, H - 36));
+    s.push('<text class="bpx-sheet-label" x="42" y="42">電気設備 単線結線図（系統図）</text>');
+    s.push('<text class="bpx-sheet-sub" x="42" y="59">受電〜変圧器〜主幹〜動力盤〜各設備 / SLD（Single Line Diagram）</text>');
+
+    // 受電・変圧器・主幹遮断器（左上から下へ）
+    var trunkX = 130, srcY = 90, tfY = 150, mainY = 210, busY = 250;
+    s.push('<g class="bpx-sld-src">');
+    s.push('<rect x="' + (trunkX - 34) + '" y="' + (srcY - 16) + '" width="68" height="30" rx="2"/>');
+    s.push('<text x="' + trunkX + '" y="' + (srcY + 4) + '" text-anchor="middle">高圧受電 6.6kV</text>');
+    s.push('<line x1="' + trunkX + '" y1="' + (srcY + 14) + '" x2="' + trunkX + '" y2="' + (tfY - 14) + '"/>');
+    s.push('<circle cx="' + trunkX + '" cy="' + tfY + '" r="16"/><circle cx="' + (trunkX + 9) + '" cy="' + tfY + '" r="16"/>');
+    s.push('<text x="' + (trunkX + 4) + '" y="' + (tfY + 30) + '" text-anchor="middle">変圧器 500kVA</text>');
+    s.push('<line x1="' + (trunkX + 4) + '" y1="' + (tfY + 16) + '" x2="' + (trunkX + 4) + '" y2="' + (mainY - 10) + '"/>');
+    s.push('<rect x="' + (trunkX - 16) + '" y="' + (mainY - 10) + '" width="40" height="20" rx="2"/>');
+    s.push('<text x="' + (trunkX + 4) + '" y="' + (mainY + 34) + '" text-anchor="middle">主幹遮断器 (MCCB)</text>');
+    s.push('<line x1="' + (trunkX + 4) + '" y1="' + (mainY + 10) + '" x2="' + (trunkX + 4) + '" y2="' + busY + '"/>');
+    s.push('</g>');
+
+    // 母線（横に伸ばして各動力盤へ分岐）
+    var busX1 = trunkX + 4, busX2 = W - 120;
+    s.push('<line class="bpx-sld-bus" x1="' + busX1 + '" y1="' + busY + '" x2="' + busX2 + '" y2="' + busY + '"/>');
+
+    var colW = (busX2 - busX1) / groupKeys.length;
+    for (var gi = 0; gi < groupKeys.length; gi++) {
+      var gk = groupKeys[gi], items = groups[gk];
+      var cx = busX1 + colW * gi + colW / 2;
+      var panelY = busY + 46;
+      s.push('<line class="bpx-sld-wire" x1="' + cx + '" y1="' + busY + '" x2="' + cx + '" y2="' + (panelY - 12) + '"/>');
+      s.push('<rect class="bpx-sld-panel" x="' + (cx - 22) + '" y="' + (panelY - 12) + '" width="44" height="22" rx="2"/>');
+      s.push('<text class="bpx-sld-panel-label" x="' + cx + '" y="' + (panelY + 4) + '" text-anchor="middle">' + gk + '</text>');
+      s.push('<text class="bpx-sld-group-label" x="' + cx + '" y="' + (panelY + 26) + '" text-anchor="middle">' + bpxEsc(groupLabel[gk]) + '</text>');
+      var branchTop = panelY + 34;
+      for (var j = 0; j < items.length; j++) {
+        var ey = branchTop + j * 26;
+        s.push('<line class="bpx-sld-wire" x1="' + cx + '" y1="' + (j === 0 ? branchTop - 12 : branchTop + (j - 1) * 26) + '" x2="' + cx + '" y2="' + ey + '"/>');
+        s.push('<line class="bpx-sld-wire" x1="' + cx + '" y1="' + ey + '" x2="' + (cx + 46) + '" y2="' + ey + '"/>');
+        s.push('<circle class="bpx-sld-brk" cx="' + (cx + 8) + '" cy="' + ey + '" r="3"/>');
+        s.push('<text class="bpx-sld-item" x="' + (cx + 52) + '" y="' + (ey + 3) + '">' + bpxEsc(items[j]) + '</text>');
+      }
+      if (!items.length) s.push('<text class="bpx-sld-item" x="' + (cx + 52) + '" y="' + (branchTop + 3) + '">（該当設備なし）</text>');
+    }
+    s.push('<g class="bpx-sld-legend"><rect x="42" y="' + (H - 70) + '" width="220" height="46" rx="2"/>' +
+      '<text x="54" y="' + (H - 54) + '">━━ 幹線・分岐線</text>' +
+      '<text x="54" y="' + (H - 38) + '">○ 遮断器（ブレーカ）</text></g>');
+    s.push("</svg>");
+    host.innerHTML = s.join("");
   }
 
   function renderBlueprint(t, order) {
