@@ -594,6 +594,383 @@
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
   .disc { max-width: 46em; }
+  /* ---- 生産方式セレクタ ---- */
+  .pmethod { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 11px 16px 0; }
+  .pmethod-lbl { font-size: 0.72rem; font-family: var(--font-mono); color: var(--steel); }
+  .pmethod button { border: 1px solid var(--line-strong); background: var(--paper); color: var(--steel-deep); border-radius: 100px; padding: 5px 13px; font-size: 0.76rem; cursor: pointer; font-family: inherit; transition: background .15s, color .15s, border-color .15s; }
+  .pmethod button:hover { border-color: var(--accent); color: var(--ink); }
+  .pmethod button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pmethod-note { font-size: 0.72rem; color: var(--steel); margin-left: auto; }
+.bpx-svg {
+  width: 100%;
+  min-width: 660px;
+  height: auto;
+  display: block;
+  background: var(--paper);
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+
+.bpx-svg text {
+  letter-spacing: 0;
+}
+
+.bpx-sheet-border,
+.bpx-sheet-inner {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.bpx-sheet-inner {
+  stroke: var(--line);
+}
+
+.bpx-sheet-label {
+  fill: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.bpx-sheet-sub,
+.bpx-site-note,
+.bpx-dock-label,
+.bpx-room-sub,
+.bpx-flow-label,
+.bpx-aisle-label,
+.bpx-scale {
+  fill: var(--steel-deep);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+}
+
+.bpx-site-boundary {
+  fill: none;
+  stroke: var(--steel);
+  stroke-width: 1.1;
+  stroke-dasharray: 8 5;
+}
+
+.bpx-road {
+  stroke: var(--line);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+
+.bpx-dock {
+  fill: url(#bpx-hatch);
+  stroke: var(--steel);
+  stroke-width: 1;
+}
+
+.bpx-building-fill,
+.bpx-floor {
+  fill: var(--paper);
+  stroke: none;
+}
+
+.bpx-wall-outer {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3.2;
+}
+
+.bpx-wall-inner {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.2;
+}
+
+.bpx-room-zone {
+  fill: var(--panel-deep);
+  stroke: var(--steel);
+  stroke-width: 0.9;
+}
+
+.bpx-room-production {
+  fill: var(--paper);
+}
+
+.bpx-room-side {
+  fill: var(--accent-soft);
+}
+
+.bpx-room-quality {
+  fill: var(--panel);
+}
+
+.bpx-room-office,
+.bpx-room-electric,
+.bpx-room-utility {
+  fill: var(--panel-deep);
+}
+
+.bpx-room-label {
+  fill: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  dominant-baseline: middle;
+}
+
+.bpx-grid line {
+  stroke: var(--line);
+  stroke-width: 0.55;
+  stroke-dasharray: 2 5;
+}
+
+.bpx-grid-bubble {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+
+.bpx-grid-text {
+  fill: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.bpx-column {
+  fill: var(--ink);
+  stroke: none;
+}
+
+.bpx-dim-line,
+.bpx-dim-ext,
+.bpx-dim-tick {
+  stroke: var(--steel);
+  stroke-width: 0.75;
+  fill: none;
+}
+
+.bpx-dim-total {
+  stroke: var(--ink);
+  stroke-width: 0.9;
+}
+
+.bpx-dim-text {
+  fill: var(--steel-deep);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bpx-main-aisle {
+  fill: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+  stroke: var(--accent);
+  stroke-width: 0.7;
+  stroke-dasharray: 4 3;
+}
+
+.bpx-ped-aisle {
+  fill: none;
+  stroke: var(--steel);
+  stroke-width: 0.8;
+  stroke-dasharray: 3 3;
+}
+
+.bpx-opening {
+  fill: none;
+  stroke: var(--steel);
+  stroke-width: 0.9;
+  stroke-dasharray: 5 3;
+}
+
+.bpx-door-gap {
+  stroke: var(--paper);
+  stroke-width: 5;
+}
+
+.bpx-door-leaf {
+  stroke: var(--ink);
+  stroke-width: 0.9;
+}
+
+.bpx-door-swing {
+  fill: none;
+  stroke: var(--steel);
+  stroke-width: 0.75;
+}
+
+.bpx-flow-route {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bpx-flow-cell {
+  stroke-width: 1.6;
+}
+
+.bpx-flow-line {
+  stroke-width: 2.4;
+}
+
+.bpx-flow-functional {
+  stroke: var(--accent-deep);
+  stroke-width: 1.6;
+  stroke-dasharray: 6 3;
+}
+
+.bpx-flow-transfer {
+  stroke-width: 1.5;
+}
+
+.bpx-flow-supply {
+  stroke: var(--steel);
+  stroke-width: 0.8;
+  stroke-dasharray: 3 2;
+}
+
+.bpx-cell {
+  fill: none;
+  stroke: var(--steel-deep);
+  stroke-width: 1;
+  stroke-dasharray: 6 3;
+}
+
+.bpx-cell-title,
+.bpx-functional-title,
+.bpx-table-title {
+  fill: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.bpx-operator circle,
+.bpx-operator line {
+  fill: none;
+  stroke: var(--steel-deep);
+  stroke-width: 0.9;
+}
+
+.bpx-supermarket,
+.bpx-shelf {
+  fill: var(--panel);
+  stroke: var(--steel);
+  stroke-width: 0.8;
+}
+
+.bpx-kanban {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 0.6;
+}
+
+.bpx-functional-area {
+  fill: none;
+  stroke: var(--steel-deep);
+  stroke-width: 1;
+}
+
+.bpx-equip {
+  fill: var(--paper);
+  stroke: var(--steel-deep);
+  stroke-width: 1;
+}
+
+.bpx-equip-clean {
+  fill: var(--clean-soft, var(--accent-soft));
+  stroke: var(--clean, var(--accent));
+}
+
+.bpx-equip-side {
+  fill: var(--panel);
+}
+
+.bpx-equip-symbol {
+  fill: none;
+  stroke: var(--steel-deep);
+  stroke-width: 0.9;
+}
+
+.bpx-equip-line {
+  stroke: var(--steel-deep);
+  stroke-width: 0.75;
+}
+
+.bpx-equip-no {
+  fill: var(--accent-deep);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.bpx-equip-caption {
+  fill: var(--ink);
+  font-size: 8px;
+  dominant-baseline: middle;
+}
+
+.bpx-table,
+.bpx-title-block {
+  fill: var(--panel-deep);
+  stroke: var(--ink);
+  stroke-width: 1.1;
+}
+
+.bpx-table-head {
+  fill: var(--panel);
+  stroke: none;
+}
+
+.bpx-table-line,
+.bpx-title-line {
+  stroke: var(--line-strong);
+  stroke-width: 0.8;
+}
+
+.bpx-table-label,
+.bpx-title-key {
+  fill: var(--steel-deep);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+}
+
+.bpx-table-text,
+.bpx-title-value {
+  fill: var(--ink);
+  font-size: 9.5px;
+}
+
+.bpx-table-no {
+  fill: var(--accent-deep);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.bpx-title-main {
+  fill: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bpx-title-sub {
+  fill: var(--ink);
+  font-size: 10px;
+}
+
+.bpx-north line,
+.bpx-north polygon {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.1;
+}
+
+.bpx-north polygon {
+  fill: var(--ink);
+}
+
+.bpx-north text {
+  fill: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 700;
+}
 </style>
 
 <div class="wrap">
@@ -755,6 +1132,13 @@
         <div class="fhead">
           <span class="ttl">設計図面（俯瞰図）</span>
           <span class="hint3d">CaddiPlant 自動生成 ／ 業者にそのまま渡せる初期図面</span>
+        </div>
+        <div class="pmethod" id="pmethod">
+          <span class="pmethod-lbl">生産方式</span>
+          <button type="button" data-m="cell">セル生産方式</button>
+          <button type="button" data-m="line">ライン生産（トヨタ方式）</button>
+          <button type="button" data-m="functional">機能別配置</button>
+          <span class="pmethod-note" id="pmethodNote"></span>
         </div>
         <div class="bpwrap"><div id="blueprint"></div></div>
       </div>
@@ -918,7 +1302,7 @@
   var TORDER = { "general":0, "precision":1, "ultra-precision":2 };
 
   var state = { product: "precision-machined", volume: "mid", tol: "general", trigger: "capacity",
-                location: "domestic", shift: "2", budget: "m", certs: [] };
+                location: "domestic", shift: "2", budget: "m", certs: [], prodMethod: "cell" };
   var view = { templateId: null, tmpl: null, order: [] }; // order = array of optimal-position indices, in displayed sequence
 
   var LOC_LABEL = { domestic: "国内", sea: "東南アジア", india: "インド", na: "北米" };
@@ -1113,143 +1497,601 @@
     if (has("乾燥", "炉", "リフロー", "プレス")) return '<rect class="bp-eq" x="' + (cx - 11) + '" y="' + (cy2 - 5) + '" width="22" height="10" rx="5"/>';
     return '<rect class="bp-eq" x="' + (cx - 9) + '" y="' + (cy2 - 6) + '" width="18" height="12" rx="2"/><rect class="bp-eq" x="' + (cx - 3) + '" y="' + (cy2 - 10) + '" width="6" height="5"/>';
   }
+  function bpxEsc(v) {
+    v = (v === undefined || v === null) ? "" : String(v);
+    return v.replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function bpxN(v) {
+    var n = Math.round(Number(v) * 10) / 10;
+    return String(n).replace(/\.0$/, "");
+  }
+
+  function bpxHas(text, words) {
+    text = String(text || "");
+    for (var i = 0; i < words.length; i++) if (text.indexOf(words[i]) >= 0) return true;
+    return false;
+  }
+
+  function bpxClip(text, max) {
+    text = String(text || "");
+    if (text.length <= max) return text;
+    return text.slice(0, Math.max(1, max - 2)) + "..";
+  }
+
+  function bpxSplit(text, maxChars, maxLines) {
+    text = String(text || "");
+    maxChars = Math.max(1, maxChars || 8);
+    maxLines = Math.max(1, maxLines || 2);
+    var out = [];
+    while (text.length && out.length < maxLines) {
+      if (text.length <= maxChars) {
+        out.push(text);
+        text = "";
+      } else {
+        out.push(text.slice(0, maxChars));
+        text = text.slice(maxChars);
+      }
+    }
+    if (text.length && out.length) out[out.length - 1] = bpxClip(out[out.length - 1] + text, maxChars);
+    return out.length ? out : [""];
+  }
+
+  function bpxTextLines(s, cls, x, y, text, anchor, maxChars, lineH, maxLines) {
+    var lines = bpxSplit(text, maxChars, maxLines);
+    var start = y - ((lines.length - 1) * lineH) / 2;
+    for (var i = 0; i < lines.length; i++) {
+      s.push('<text class="' + cls + '" x="' + bpxN(x) + '" y="' + bpxN(start + i * lineH) + '" text-anchor="' + (anchor || "start") + '">' + bpxEsc(lines[i]) + '</text>');
+    }
+  }
+
+  function bpxRect(cls, x, y, w, h, attrs) {
+    return '<rect class="' + cls + '" x="' + bpxN(x) + '" y="' + bpxN(y) + '" width="' + bpxN(w) + '" height="' + bpxN(h) + '"' + (attrs ? ' ' + attrs : '') + '/>';
+  }
+
+  function bpxLine(cls, x1, y1, x2, y2) {
+    return '<line class="' + cls + '" x1="' + bpxN(x1) + '" y1="' + bpxN(y1) + '" x2="' + bpxN(x2) + '" y2="' + bpxN(y2) + '"/>';
+  }
+
+  function bpxPathD(pts) {
+    if (!pts || !pts.length) return "";
+    var d = "M" + bpxN(pts[0][0]) + "," + bpxN(pts[0][1]);
+    for (var i = 1; i < pts.length; i++) d += " L" + bpxN(pts[i][0]) + "," + bpxN(pts[i][1]);
+    return d;
+  }
+
+  function bpxRoute(s, pts, cls) {
+    if (!pts || pts.length < 2) return;
+    var cleaned = [pts[0]];
+    for (var i = 1; i < pts.length; i++) {
+      var a = cleaned[cleaned.length - 1], b = pts[i];
+      if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) > 0.2) cleaned.push(b);
+    }
+    if (cleaned.length < 2) return;
+    s.push('<path class="bpx-flow-route ' + cls + '" d="' + bpxPathD(cleaned) + '" marker-end="url(#bpx-arrow)"/>');
+  }
+
+  function bpxOrthogonalThrough(points) {
+    if (!points || !points.length) return [];
+    var out = [points[0]];
+    for (var i = 1; i < points.length; i++) {
+      var prev = out[out.length - 1], next = points[i];
+      if (Math.abs(prev[0] - next[0]) < 0.2 || Math.abs(prev[1] - next[1]) < 0.2) {
+        out.push(next);
+      } else {
+        var mx = Math.round((prev[0] + next[0]) / 2);
+        out.push([mx, prev[1]], [mx, next[1]], next);
+      }
+    }
+    return out;
+  }
+
+  function bpxCircled(n) {
+    var marks = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"];
+    return marks[n - 1] || ("(" + n + ")");
+  }
+
+  function bpxMethodMeta(method) {
+    var map = {
+      cell: { key: "cell", label: "セル生産方式", drawing: "工場棟平面図（セル生産方式）", note: "多品種・一個流し" },
+      line: { key: "line", label: "ライン生産方式", drawing: "工場棟平面図（ライン生産方式）", note: "タクト同期・かんばん供給" },
+      functional: { key: "functional", label: "機能別配置", drawing: "工場棟平面図（機能別配置）", note: "多品種少量・機能別機械群" }
+    };
+    return map[method] || map.cell;
+  }
+
+  function bpxSideKind(name) {
+    if (bpxHas(name, ["受入", "入荷", "荷受", "原材", "材料"])) return "receive";
+    if (bpxHas(name, ["出荷", "発送", "完成品"])) return "ship";
+    return "";
+  }
+
+  function bpxFunctionGroup(name) {
+    if (bpxHas(name, ["加工", "切削", "旋盤", "研削", "プレス", "成形", "溶接", "穴", "曲げ"])) return "machining";
+    if (bpxHas(name, ["検査", "測定", "試験", "品質", "洗浄", "乾燥", "塗装", "熱処理", "表面処理"])) return "inspection";
+    if (bpxHas(name, ["組立", "実装", "締結", "圧入", "接着", "配線", "調整", "バリ", "仕上"])) return "assembly";
+    if (bpxHas(name, ["梱包", "包装", "保管", "ピッキング", "倉庫"])) return "packing";
+    return "assembly";
+  }
+
+  function bpxFunctionLabel(group) {
+    return { machining: "加工機群", assembly: "組立・処理群", inspection: "検査・洗浄群", packing: "梱包・保管群" }[group] || "工程群";
+  }
+
+  function bpxDerivedEquipment(processName) {
+    if (bpxHas(processName, ["受入", "入荷", "荷受"])) return "荷受コンベヤ";
+    if (bpxHas(processName, ["出荷", "発送"])) return "出荷検品台";
+    if (bpxHas(processName, ["梱包", "包装"])) return "梱包作業台";
+    if (bpxHas(processName, ["検査", "測定", "試験"])) return "測定検査台";
+    if (bpxHas(processName, ["洗浄"])) return "自動洗浄機";
+    if (bpxHas(processName, ["乾燥", "炉", "熱処理"])) return "乾燥炉";
+    if (bpxHas(processName, ["組立", "実装", "締結", "圧入", "接着"])) return "組立ステーション";
+    if (bpxHas(processName, ["加工", "切削", "旋盤", "研削", "成形", "プレス"])) return "加工機";
+    if (bpxHas(processName, ["バリ", "仕上"])) return "仕上作業台";
+    return processName + "装置";
+  }
+
+  function bpxOrderedItems(t, order) {
+    var src = (t && t.processFlow) ? t.processFlow : [];
+    var cleanZones = (t && t.cleanZones) ? t.cleanZones : [];
+    var keyEquipment = (t && t.keyEquipment) ? t.keyEquipment : [];
+    var out = [];
+    var used = {};
+    if (order && order.length) {
+      for (var i = 0; i < order.length; i++) {
+        var idx = Number(order[i]);
+        if (idx >= 0 && idx < src.length && !used[idx]) {
+          used[idx] = true;
+          out.push({ sourceIndex: idx, name: String(src[idx] || "工程") });
+        }
+      }
+    }
+    for (var j = 0; j < src.length; j++) {
+      if (!used[j]) out.push({ sourceIndex: j, name: String(src[j] || "工程") });
+    }
+    if (!out.length) out.push({ sourceIndex: 0, name: "工程" });
+    out = out.slice(0, 9);
+    for (var k = 0; k < out.length; k++) {
+      var item = out[k];
+      item.no = k + 1;
+      item.side = bpxSideKind(item.name);
+      item.clean = cleanZones.indexOf(item.name) >= 0;
+      item.group = bpxFunctionGroup(item.name);
+      item.eq = keyEquipment[k] || keyEquipment[item.sourceIndex] || bpxDerivedEquipment(item.name);
+      item.pt = null;
+    }
+    return out;
+  }
+
+  function bpxEquipSymbol(item, cx, cy, scale) {
+    scale = scale || 1;
+    var name = (item.name || "") + " " + (item.eq || "");
+    var r = 6 * scale, x = cx, y = cy;
+    if (bpxHas(name, ["検査", "測定", "試験"])) {
+      return '<polygon class="bpx-equip-symbol" points="' + bpxN(x) + ',' + bpxN(y - r) + ' ' + bpxN(x + r) + ',' + bpxN(y) + ' ' + bpxN(x) + ',' + bpxN(y + r) + ' ' + bpxN(x - r) + ',' + bpxN(y) + '"/>';
+    }
+    if (bpxHas(name, ["洗浄", "タンク", "塗装", "調合", "乾燥", "炉", "熱処理"])) {
+      return '<circle class="bpx-equip-symbol" cx="' + bpxN(x) + '" cy="' + bpxN(y) + '" r="' + bpxN(r) + '"/><line class="bpx-equip-line" x1="' + bpxN(x - r) + '" y1="' + bpxN(y) + '" x2="' + bpxN(x + r) + '" y2="' + bpxN(y) + '"/>';
+    }
+    if (bpxHas(name, ["受入", "出荷", "梱包", "包装", "倉庫", "材料", "保管"])) {
+      return '<rect class="bpx-equip-symbol" x="' + bpxN(x - r) + '" y="' + bpxN(y - r * 0.75) + '" width="' + bpxN(r * 2) + '" height="' + bpxN(r * 1.5) + '"/><line class="bpx-equip-line" x1="' + bpxN(x - r) + '" y1="' + bpxN(y) + '" x2="' + bpxN(x + r) + '" y2="' + bpxN(y) + '"/><line class="bpx-equip-line" x1="' + bpxN(x) + '" y1="' + bpxN(y - r * 0.75) + '" x2="' + bpxN(x) + '" y2="' + bpxN(y + r * 0.75) + '"/>';
+    }
+    if (bpxHas(name, ["組立", "実装", "締結", "圧入", "接着", "溶接", "巻", "バリ", "仕上"])) {
+      return '<rect class="bpx-equip-symbol" x="' + bpxN(x - r) + '" y="' + bpxN(y - r * 0.6) + '" width="' + bpxN(r * 2) + '" height="' + bpxN(r * 1.2) + '" rx="1"/><line class="bpx-equip-line" x1="' + bpxN(x + r * 0.2) + '" y1="' + bpxN(y - r * 0.6) + '" x2="' + bpxN(x + r * 1.3) + '" y2="' + bpxN(y - r * 1.3) + '"/>';
+    }
+    return '<rect class="bpx-equip-symbol" x="' + bpxN(x - r) + '" y="' + bpxN(y - r * 0.7) + '" width="' + bpxN(r * 2) + '" height="' + bpxN(r * 1.4) + '" rx="1"/><rect class="bpx-equip-symbol" x="' + bpxN(x - r * 0.35) + '" y="' + bpxN(y - r * 1.25) + '" width="' + bpxN(r * 0.7) + '" height="' + bpxN(r * 0.55) + '"/>';
+  }
+
+  function bpxEquipBlock(s, item, cx, cy, w, h, cls, showCaption) {
+    var x = cx - w / 2, y = cy - h / 2;
+    var c = "bpx-equip" + (item.clean ? " bpx-equip-clean" : "") + (cls ? " " + cls : "");
+    item.pt = [cx, cy];
+    s.push('<g class="bpx-equip-node">');
+    s.push(bpxRect(c, x, y, w, h, 'rx="2"'));
+    s.push('<text class="bpx-equip-no" x="' + bpxN(x + 4) + '" y="' + bpxN(y + 10) + '">' + bpxCircled(item.no) + '</text>');
+    s.push(bpxEquipSymbol(item, cx + w * 0.13, cy + 2, Math.max(0.72, Math.min(1, w / 42))));
+    s.push('</g>');
+    if (showCaption !== false) bpxTextLines(s, "bpx-equip-caption", cx, y + h + 8, item.name, "middle", w < 38 ? 4 : 6, 8, 2);
+  }
+
+  function bpxDrawZone(s, cls, x, y, w, h, label, sub) {
+    s.push(bpxRect(cls, x, y, w, h));
+    bpxTextLines(s, "bpx-room-label", x + w / 2, y + h / 2 - (sub ? 5 : 0), label, "middle", Math.max(4, Math.floor(w / 12)), 10, 2);
+    if (sub) s.push('<text class="bpx-room-sub" x="' + bpxN(x + w / 2) + '" y="' + bpxN(y + h / 2 + 14) + '" text-anchor="middle">' + bpxEsc(sub) + '</text>');
+  }
+
+  function bpxDrawDimensions(s, g, xBays, yBays) {
+    var xs = [], ys = [], i;
+    for (i = 0; i <= xBays; i++) xs.push(g.outerX + (g.outerW * i) / xBays);
+    for (i = 0; i <= yBays; i++) ys.push(g.outerY + (g.outerH * i) / yBays);
+    var spanY = g.outerY - 22, totalY = g.outerY - 44;
+    var spanX = g.outerX - 22, totalX = g.outerX - 78;
+
+    s.push('<g class="bpx-dim">');
+    for (i = 0; i < xs.length; i++) s.push(bpxLine("bpx-dim-ext", xs[i], g.outerY, xs[i], totalY - 3));
+    for (i = 0; i < xBays; i++) {
+      s.push(bpxLine("bpx-dim-line", xs[i], spanY, xs[i + 1], spanY));
+      s.push(bpxLine("bpx-dim-tick", xs[i] - 3, spanY + 3, xs[i] + 3, spanY - 3));
+      s.push(bpxLine("bpx-dim-tick", xs[i + 1] - 3, spanY + 3, xs[i + 1] + 3, spanY - 3));
+      s.push('<text class="bpx-dim-text" x="' + bpxN((xs[i] + xs[i + 1]) / 2) + '" y="' + bpxN(spanY - 5) + '" text-anchor="middle">6000</text>');
+    }
+    s.push(bpxLine("bpx-dim-line bpx-dim-total", xs[0], totalY, xs[xs.length - 1], totalY));
+    s.push(bpxLine("bpx-dim-tick", xs[0] - 3, totalY + 3, xs[0] + 3, totalY - 3));
+    s.push(bpxLine("bpx-dim-tick", xs[xs.length - 1] - 3, totalY + 3, xs[xs.length - 1] + 3, totalY - 3));
+    s.push('<text class="bpx-dim-text" x="' + bpxN(g.outerX + g.outerW / 2) + '" y="' + bpxN(totalY - 6) + '" text-anchor="middle">' + (xBays * 6000) + '</text>');
+
+    for (i = 0; i < ys.length; i++) s.push(bpxLine("bpx-dim-ext", totalX + 3, ys[i], g.outerX, ys[i]));
+    for (i = 0; i < yBays; i++) {
+      s.push(bpxLine("bpx-dim-line", spanX, ys[i], spanX, ys[i + 1]));
+      s.push(bpxLine("bpx-dim-tick", spanX - 3, ys[i] - 3, spanX + 3, ys[i] + 3));
+      s.push(bpxLine("bpx-dim-tick", spanX - 3, ys[i + 1] - 3, spanX + 3, ys[i + 1] + 3));
+      var my = (ys[i] + ys[i + 1]) / 2;
+      s.push('<text class="bpx-dim-text" x="' + bpxN(spanX - 7) + '" y="' + bpxN(my) + '" text-anchor="middle" transform="rotate(-90 ' + bpxN(spanX - 7) + " " + bpxN(my) + ')">6000</text>');
+    }
+    s.push(bpxLine("bpx-dim-line bpx-dim-total", totalX, ys[0], totalX, ys[ys.length - 1]));
+    s.push(bpxLine("bpx-dim-tick", totalX - 3, ys[0] - 3, totalX + 3, ys[0] + 3));
+    s.push(bpxLine("bpx-dim-tick", totalX - 3, ys[ys.length - 1] - 3, totalX + 3, ys[ys.length - 1] + 3));
+    var ty = g.outerY + g.outerH / 2;
+    s.push('<text class="bpx-dim-text" x="' + bpxN(totalX - 8) + '" y="' + bpxN(ty) + '" text-anchor="middle" transform="rotate(-90 ' + bpxN(totalX - 8) + " " + bpxN(ty) + ')">' + (yBays * 6000) + '</text>');
+    s.push('</g>');
+  }
+
+  function bpxDrawGrid(s, g, xBays, yBays) {
+    var i, j, x, y;
+    s.push('<g class="bpx-grid">');
+    for (i = 0; i <= xBays; i++) {
+      x = g.outerX + (g.outerW * i) / xBays;
+      s.push('<line x1="' + bpxN(x) + '" y1="' + bpxN(g.outerY) + '" x2="' + bpxN(x) + '" y2="' + bpxN(g.outerY + g.outerH) + '"/>');
+      s.push('<circle class="bpx-grid-bubble" cx="' + bpxN(x) + '" cy="' + bpxN(g.outerY - 64) + '" r="12"/>');
+      s.push('<text class="bpx-grid-text" x="' + bpxN(x) + '" y="' + bpxN(g.outerY - 60) + '" text-anchor="middle">X' + (i + 1) + '</text>');
+    }
+    for (j = 0; j <= yBays; j++) {
+      y = g.outerY + (g.outerH * j) / yBays;
+      s.push('<line x1="' + bpxN(g.outerX) + '" y1="' + bpxN(y) + '" x2="' + bpxN(g.outerX + g.outerW) + '" y2="' + bpxN(y) + '"/>');
+      s.push('<circle class="bpx-grid-bubble" cx="' + bpxN(g.outerX - 52) + '" cy="' + bpxN(y) + '" r="12"/>');
+      s.push('<text class="bpx-grid-text" x="' + bpxN(g.outerX - 52) + '" y="' + bpxN(y + 4) + '" text-anchor="middle">Y' + (j + 1) + '</text>');
+    }
+    s.push('</g>');
+  }
+
+  function bpxDrawColumns(s, g, xBays, yBays) {
+    var i, j, x, y;
+    s.push('<g class="bpx-columns">');
+    for (i = 0; i <= xBays; i++) {
+      x = g.outerX + (g.outerW * i) / xBays;
+      for (j = 0; j <= yBays; j++) {
+        y = g.outerY + (g.outerH * j) / yBays;
+        s.push(bpxRect("bpx-column", x - 3, y - 3, 6, 6));
+      }
+    }
+    s.push('</g>');
+  }
+
+  function bpxDrawDoor(s, side, x, y, size) {
+    size = size || 32;
+    if (side === "left") {
+      s.push(bpxLine("bpx-door-gap", x, y - size / 2, x, y + size / 2));
+      s.push(bpxLine("bpx-door-leaf", x, y - size / 2, x + size, y - size / 2));
+      s.push('<path class="bpx-door-swing" d="M' + bpxN(x) + "," + bpxN(y - size / 2) + " A" + bpxN(size) + "," + bpxN(size) + " 0 0 1 " + bpxN(x + size) + "," + bpxN(y + size / 2) + '"/>');
+    } else if (side === "right") {
+      s.push(bpxLine("bpx-door-gap", x, y - size / 2, x, y + size / 2));
+      s.push(bpxLine("bpx-door-leaf", x, y - size / 2, x - size, y - size / 2));
+      s.push('<path class="bpx-door-swing" d="M' + bpxN(x) + "," + bpxN(y - size / 2) + " A" + bpxN(size) + "," + bpxN(size) + " 0 0 0 " + bpxN(x - size) + "," + bpxN(y + size / 2) + '"/>');
+    } else if (side === "top") {
+      s.push(bpxLine("bpx-door-gap", x - size / 2, y, x + size / 2, y));
+      s.push(bpxLine("bpx-door-leaf", x - size / 2, y, x - size / 2, y + size));
+      s.push('<path class="bpx-door-swing" d="M' + bpxN(x - size / 2) + "," + bpxN(y) + " A" + bpxN(size) + "," + bpxN(size) + " 0 0 0 " + bpxN(x + size / 2) + "," + bpxN(y + size) + '"/>');
+    }
+  }
+
+  function bpxBaseGeometry() {
+    var g = { outerX: 124, outerY: 148, outerW: 600, outerH: 296 };
+    g.innerX = g.outerX + 12;
+    g.innerY = g.outerY + 12;
+    g.innerW = g.outerW - 24;
+    g.innerH = g.outerH - 24;
+    g.topH = 48;
+    g.bottomH = 42;
+    g.sideW = 74;
+    g.prodX = g.innerX + g.sideW;
+    g.prodY = g.innerY + g.topH;
+    g.prodW = g.innerW - g.sideW * 2;
+    g.prodH = g.innerH - g.topH - g.bottomH;
+    g.receive = { x: g.innerX, y: g.prodY, w: g.sideW, h: g.prodH };
+    g.ship = { x: g.innerX + g.innerW - g.sideW, y: g.prodY, w: g.sideW, h: g.prodH };
+    return g;
+  }
+
+  function bpxDrawBaseRooms(s, g) {
+    s.push(bpxRect("bpx-building-fill", g.outerX, g.outerY, g.outerW, g.outerH));
+    s.push(bpxRect("bpx-floor", g.innerX, g.innerY, g.innerW, g.innerH));
+    bpxDrawZone(s, "bpx-room-zone bpx-room-office", g.innerX, g.innerY, 176, g.topH, "事務所", "管理・打合せ");
+    bpxDrawZone(s, "bpx-room-zone bpx-room-quality", g.innerX + 176, g.innerY, 236, g.topH, "検査室", "恒温・品質保証");
+    bpxDrawZone(s, "bpx-room-zone bpx-room-electric", g.innerX + 412, g.innerY, g.innerW - 412, g.topH, "電気室", "受変電・制御盤");
+    bpxDrawZone(s, "bpx-room-zone bpx-room-side", g.receive.x, g.receive.y, g.receive.w, g.receive.h, "受入", "原材料");
+    s.push(bpxRect("bpx-room-zone bpx-room-production", g.prodX, g.prodY, g.prodW, g.prodH));
+    s.push('<text class="bpx-room-label" x="' + bpxN(g.prodX + 8) + '" y="' + bpxN(g.prodY + 14) + '">生産エリア</text>');
+    bpxDrawZone(s, "bpx-room-zone bpx-room-side", g.ship.x, g.ship.y, g.ship.w, g.ship.h, "出荷", "完成品");
+    bpxDrawZone(s, "bpx-room-zone bpx-room-utility", g.innerX, g.innerY + g.innerH - g.bottomH, 154, g.bottomH, "部品倉庫", "棚・副資材");
+    bpxDrawZone(s, "bpx-room-zone bpx-room-utility", g.innerX + 154, g.innerY + g.innerH - g.bottomH, 160, g.bottomH, "更衣休憩", "");
+    s.push(bpxRect("bpx-ped-aisle", g.innerX + 326, g.innerY + g.innerH - g.bottomH + 8, g.innerW - 338, 20));
+    s.push('<text class="bpx-aisle-label" x="' + bpxN(g.innerX + 326 + (g.innerW - 338) / 2) + '" y="' + bpxN(g.innerY + g.innerH - g.bottomH + 22) + '" text-anchor="middle">歩行者通路</text>');
+    s.push(bpxRect("bpx-opening", g.innerX + g.innerW - 92, g.innerY + g.innerH - g.bottomH + 9, 72, 18));
+    s.push('<text class="bpx-room-sub" x="' + bpxN(g.innerX + g.innerW - 56) + '" y="' + bpxN(g.innerY + g.innerH - g.bottomH + 23) + '" text-anchor="middle">将来開口</text>');
+    s.push(bpxRect("bpx-wall-outer", g.outerX, g.outerY, g.outerW, g.outerH));
+    s.push(bpxRect("bpx-wall-inner", g.outerX + 7, g.outerY + 7, g.outerW - 14, g.outerH - 14));
+  }
+
+  function bpxComputeSidePositions(flow, g) {
+    var recv = [], ship = [], i;
+    for (i = 0; i < flow.length; i++) {
+      if (flow[i].side === "receive") recv.push(flow[i]);
+      if (flow[i].side === "ship") ship.push(flow[i]);
+    }
+    for (i = 0; i < recv.length; i++) recv[i].pt = [g.receive.x + g.receive.w / 2, g.receive.y + ((i + 1) * g.receive.h) / (recv.length + 1)];
+    for (i = 0; i < ship.length; i++) ship[i].pt = [g.ship.x + g.ship.w / 2, g.ship.y + ((i + 1) * g.ship.h) / (ship.length + 1)];
+    return { receive: recv, ship: ship };
+  }
+
+  function bpxDefaultPoint(g, side) {
+    if (side === "ship") return [g.ship.x + g.ship.w / 2, g.ship.y + g.ship.h / 2];
+    return [g.receive.x + g.receive.w / 2, g.receive.y + g.receive.h / 2];
+  }
+
+  function bpxDrawSideEquipment(s, sideSet) {
+    for (var i = 0; i < sideSet.receive.length; i++) bpxEquipBlock(s, sideSet.receive[i], sideSet.receive[i].pt[0], sideSet.receive[i].pt[1], 42, 26, "bpx-equip-side", true);
+    for (var j = 0; j < sideSet.ship.length; j++) bpxEquipBlock(s, sideSet.ship[j], sideSet.ship[j].pt[0], sideSet.ship[j].pt[1], 42, 26, "bpx-equip-side", true);
+  }
+
+  function bpxProductionItems(flow) {
+    var out = [];
+    for (var i = 0; i < flow.length; i++) if (!flow[i].side) out.push(flow[i]);
+    return out;
+  }
+
+  function bpxPartition(items, count) {
+    var groups = [], base = Math.floor(items.length / count), extra = items.length % count, pos = 0;
+    for (var i = 0; i < count; i++) {
+      var len = base + (i < extra ? 1 : 0);
+      groups.push(items.slice(pos, pos + len));
+      pos += len;
+    }
+    return groups;
+  }
+
+  function bpxUPositions(count, x, y, w, h) {
+    if (count <= 1) return [[x + w / 2, y + h / 2]];
+    if (count === 2) return [[x + w * 0.28, y + h * 0.35], [x + w * 0.72, y + h * 0.68]];
+    return [[x + w * 0.25, y + h * 0.33], [x + w * 0.72, y + h * 0.33], [x + w * 0.72, y + h * 0.70]];
+  }
+
+  function bpxDrawCellLayout(s, flow, g) {
+    var items = bpxProductionItems(flow);
+    var cellCount = items.length <= 4 ? 2 : 3;
+    if (items.length <= 1) cellCount = 1;
+    var groups = bpxPartition(items, cellCount);
+    var gap = 10, cellW = (g.prodW - gap * (cellCount + 1)) / cellCount, cellH = g.prodH - 44;
+    var cellY = g.prodY + 10, cartY = g.prodY + g.prodH - 27;
+    s.push(bpxRect("bpx-main-aisle", g.prodX + 6, cartY, g.prodW - 12, 18));
+    s.push('<text class="bpx-aisle-label" x="' + bpxN(g.prodX + g.prodW / 2) + '" y="' + bpxN(cartY + 13) + '" text-anchor="middle">主通路（セル間台車搬送）</text>');
+    var transferPts = [bpxDefaultPoint(g, "receive")];
+    for (var c = 0; c < groups.length; c++) {
+      var cellX = g.prodX + gap + c * (cellW + gap);
+      var title = "U字セル " + String.fromCharCode(65 + c);
+      s.push(bpxRect("bpx-cell", cellX, cellY, cellW, cellH, 'rx="3"'));
+      s.push('<text class="bpx-cell-title" x="' + bpxN(cellX + 6) + '" y="' + bpxN(cellY + 13) + '">' + title + '</text>');
+      s.push('<text class="bpx-flow-label" x="' + bpxN(cellX + cellW - 8) + '" y="' + bpxN(cellY + 13) + '" text-anchor="end">多能工1-2名</text>');
+      s.push('<g class="bpx-operator"><circle cx="' + bpxN(cellX + 18) + '" cy="' + bpxN(cellY + cellH - 18) + '" r="4"/><line x1="' + bpxN(cellX + 18) + '" y1="' + bpxN(cellY + cellH - 14) + '" x2="' + bpxN(cellX + 18) + '" y2="' + bpxN(cellY + cellH - 7) + '"/><line x1="' + bpxN(cellX + 13) + '" y1="' + bpxN(cellY + cellH - 11) + '" x2="' + bpxN(cellX + 23) + '" y2="' + bpxN(cellY + cellH - 11) + '"/></g>');
+      var entry = [cellX + 12, cartY + 9], exit = [cellX + cellW - 12, cartY + 9];
+      transferPts.push(entry, exit);
+      bpxRoute(s, [[entry[0], entry[1]], [cellX + 12, cellY + 30], [cellX + cellW - 14, cellY + 30], [cellX + cellW - 14, cellY + cellH - 18], [exit[0], exit[1]]], "bpx-flow-cell");
+      var pos = bpxUPositions(groups[c].length, cellX + 14, cellY + 24, cellW - 28, cellH - 52);
+      for (var i = 0; i < groups[c].length; i++) bpxEquipBlock(s, groups[c][i], pos[i][0], pos[i][1], 36, 24, "bpx-equip-cell-item", true);
+    }
+    transferPts.push(bpxDefaultPoint(g, "ship"));
+    bpxRoute(s, bpxOrthogonalThrough(transferPts), "bpx-flow-transfer");
+  }
+
+  function bpxDrawLineLayout(s, flow, g) {
+    var items = bpxProductionItems(flow);
+    var lineY = g.prodY + g.prodH * 0.52;
+    s.push(bpxRect("bpx-main-aisle", g.prodX + 6, lineY + 30, g.prodW - 12, 18));
+    s.push('<text class="bpx-aisle-label" x="' + bpxN(g.prodX + g.prodW / 2) + '" y="' + bpxN(lineY + 43) + '" text-anchor="middle">主通路（ライン沿い搬送）</text>');
+    s.push(bpxRect("bpx-supermarket", g.prodX + 12, g.prodY + 12, g.prodW - 24, 24, 'rx="2"'));
+    s.push('<text class="bpx-flow-label" x="' + bpxN(g.prodX + 20) + '" y="' + bpxN(g.prodY + 28) + '">スーパーマーケット／かんばん供給棚</text>');
+    for (var k = 0; k < 8; k++) s.push(bpxRect("bpx-kanban", g.prodX + g.prodW - 118 + k * 13, g.prodY + 17, 8, 12));
+    var pts = [bpxDefaultPoint(g, "receive")];
+    var n = items.length;
+    for (var i = 0; i < n; i++) {
+      var x = n === 1 ? g.prodX + g.prodW / 2 : g.prodX + 24 + (i * (g.prodW - 48)) / (n - 1);
+      items[i].pt = [x, lineY];
+      pts.push(items[i].pt);
+      if (i % 2 === 0 || n <= 5) {
+        s.push(bpxRect("bpx-shelf", x - 16, g.prodY + 44, 32, 13, 'rx="1"'));
+        s.push(bpxLine("bpx-flow-supply", x, g.prodY + 57, x, lineY - 17));
+      }
+    }
+    pts.push(bpxDefaultPoint(g, "ship"));
+    bpxRoute(s, bpxOrthogonalThrough(pts), "bpx-flow-line");
+    s.push('<text class="bpx-flow-label" x="' + bpxN(g.prodX + g.prodW / 2) + '" y="' + bpxN(lineY - 28) + '" text-anchor="middle">タクト同期ライン</text>');
+    for (i = 0; i < n; i++) bpxEquipBlock(s, items[i], items[i].pt[0], items[i].pt[1], 38, 24, "bpx-equip-line-item", true);
+  }
+
+  function bpxFunctionalAreaMap(g) {
+    var areaW = (g.prodW - 26) / 2, areaH = (g.prodH - 34) / 2;
+    return {
+      machining: { x: g.prodX + 8, y: g.prodY + 10, w: areaW, h: areaH, label: "加工機群" },
+      assembly: { x: g.prodX + 18 + areaW, y: g.prodY + 10, w: areaW, h: areaH, label: "組立・処理群" },
+      inspection: { x: g.prodX + 8, y: g.prodY + 20 + areaH, w: areaW, h: areaH, label: "検査・洗浄群" },
+      packing: { x: g.prodX + 18 + areaW, y: g.prodY + 20 + areaH, w: areaW, h: areaH, label: "梱包・保管群" }
+    };
+  }
+
+  function bpxDrawFunctionalLayout(s, flow, g) {
+    var items = bpxProductionItems(flow);
+    var map = bpxFunctionalAreaMap(g);
+    var grouped = { machining: [], assembly: [], inspection: [], packing: [] };
+    var key, i, j;
+
+    s.push(bpxRect("bpx-main-aisle", g.prodX + g.prodW / 2 - 8, g.prodY + 8, 16, g.prodH - 16));
+    s.push(bpxRect("bpx-main-aisle", g.prodX + 8, g.prodY + g.prodH / 2 - 8, g.prodW - 16, 16));
+    s.push('<text class="bpx-aisle-label" x="' + bpxN(g.prodX + g.prodW / 2) + '" y="' + bpxN(g.prodY + g.prodH / 2 + 4) + '" text-anchor="middle">交差搬送主通路</text>');
+
+    for (key in map) {
+      if (map.hasOwnProperty(key)) {
+        s.push(bpxRect("bpx-functional-area", map[key].x, map[key].y, map[key].w, map[key].h, 'rx="3"'));
+        s.push('<text class="bpx-functional-title" x="' + bpxN(map[key].x + 6) + '" y="' + bpxN(map[key].y + 13) + '">' + bpxEsc(map[key].label) + '</text>');
+      }
+    }
+
+    for (i = 0; i < items.length; i++) grouped[items[i].group].push(items[i]);
+
+    for (key in grouped) {
+      if (!grouped.hasOwnProperty(key)) continue;
+      var area = map[key], arr = grouped[key], count = arr.length;
+      if (!count) continue;
+      var cols = count <= 2 ? count : Math.min(3, count);
+      var rows = Math.ceil(count / cols);
+      var availY = area.y + 25, availH = Math.max(20, area.h - 32);
+      var blockW = Math.max(24, Math.min(36, area.w / cols - 10));
+      var blockH = Math.max(14, Math.min(20, availH / rows - 2));
+      for (j = 0; j < count; j++) {
+        var col = j % cols, row = Math.floor(j / cols);
+        arr[j].pt = [
+          area.x + ((col + 0.5) * area.w) / cols,
+          availY + ((row + 0.5) * availH) / rows
+        ];
+        arr[j].bpxW = blockW;
+        arr[j].bpxH = blockH;
+        arr[j].bpxCaption = count <= 4;
+      }
+    }
+
+    var routePts = [];
+    for (i = 0; i < flow.length; i++) routePts.push(flow[i].pt || (flow[i].side === "ship" ? bpxDefaultPoint(g, "ship") : bpxDefaultPoint(g, "receive")));
+    if (routePts.length < 2) routePts = [bpxDefaultPoint(g, "receive"), bpxDefaultPoint(g, "ship")];
+    bpxRoute(s, bpxOrthogonalThrough(routePts), "bpx-flow-functional");
+
+    for (i = 0; i < items.length; i++) {
+      bpxEquipBlock(s, items[i], items[i].pt[0], items[i].pt[1], items[i].bpxW || 32, items[i].bpxH || 18, "bpx-equip-functional-item", items[i].bpxCaption);
+    }
+  }
+
+  function bpxDrawDocksAndSite(s, g) {
+    s.push('<polygon class="bpx-site-boundary" points="52,74 768,66 784,502 48,508"/>');
+    s.push(bpxLine("bpx-road", 56, 492, 768, 492));
+    s.push('<text class="bpx-site-note" x="64" y="482">構内道路</text>');
+    s.push(bpxRect("bpx-dock", g.outerX - 58, g.prodY + 46, 46, 76));
+    s.push('<text class="bpx-dock-label" x="' + bpxN(g.outerX - 35) + '" y="' + bpxN(g.prodY + 84) + '" text-anchor="middle">受入 DOCK</text>');
+    s.push(bpxRect("bpx-dock", g.outerX + g.outerW + 12, g.prodY + 46, 46, 76));
+    s.push('<text class="bpx-dock-label" x="' + bpxN(g.outerX + g.outerW + 35) + '" y="' + bpxN(g.prodY + 84) + '" text-anchor="middle">出荷 DOCK</text>');
+  }
+
+  function bpxDrawDoors(s, g) {
+    s.push(bpxRect("bpx-opening", g.outerX - 1, g.prodY + 78, 10, 38));
+    s.push(bpxRect("bpx-opening", g.outerX + g.outerW - 9, g.prodY + 78, 10, 38));
+    bpxDrawDoor(s, "left", g.outerX + 7, g.prodY + 97, 32);
+    bpxDrawDoor(s, "right", g.outerX + g.outerW - 7, g.prodY + 97, 32);
+    bpxDrawDoor(s, "top", g.innerX + 236, g.outerY + 7, 28);
+  }
+
+  function bpxDrawEquipmentTable(s, x, y, w, flow, method) {
+    var titleH = 20, headH = 22, rowH = 25;
+    var h = titleH + headH + flow.length * rowH;
+    var c1 = 34, c2 = 112, c3 = 40;
+    s.push(bpxRect("bpx-table", x, y, w, h));
+    s.push('<text class="bpx-table-title" x="' + bpxN(x + 8) + '" y="' + bpxN(y + 14) + '">機器表</text>');
+    s.push(bpxRect("bpx-table-head", x, y + titleH, w, headH));
+    var colX = [x, x + c1, x + c1 + c2, x + c1 + c2 + c3, x + w];
+    for (var i = 1; i < colX.length - 1; i++) s.push(bpxLine("bpx-table-line", colX[i], y + titleH, colX[i], y + h));
+    s.push(bpxLine("bpx-table-line", x, y + titleH, x + w, y + titleH));
+    s.push(bpxLine("bpx-table-line", x, y + titleH + headH, x + w, y + titleH + headH));
+    s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 / 2) + '" y="' + bpxN(y + titleH + 15) + '" text-anchor="middle">番号</text>');
+    s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 + 6) + '" y="' + bpxN(y + titleH + 15) + '">名称</text>');
+    s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 + c2 + c3 / 2) + '" y="' + bpxN(y + titleH + 15) + '" text-anchor="middle">数量</text>');
+    s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 + c2 + c3 + 6) + '" y="' + bpxN(y + titleH + 15) + '">備考</text>');
+    for (i = 0; i < flow.length; i++) {
+      var yy = y + titleH + headH + i * rowH;
+      var item = flow[i];
+      var note = item.side === "receive" ? "受入" : (item.side === "ship" ? "出荷" : (method === "functional" ? bpxFunctionLabel(item.group) : (method === "line" ? "ライン脇" : "セル内")));
+      if (item.clean) note = "清浄区画";
+      s.push(bpxLine("bpx-table-line", x, yy + rowH, x + w, yy + rowH));
+      s.push('<text class="bpx-table-no" x="' + bpxN(x + c1 / 2) + '" y="' + bpxN(yy + 16) + '" text-anchor="middle">' + bpxCircled(item.no) + '</text>');
+      s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + 6) + '" y="' + bpxN(yy + 16) + '">' + bpxEsc(bpxClip(item.eq, 13)) + '</text>');
+      s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + c2 + c3 / 2) + '" y="' + bpxN(yy + 16) + '" text-anchor="middle">1式</text>');
+      s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + c2 + c3 + 6) + '" y="' + bpxN(yy + 16) + '">' + bpxEsc(bpxClip(note, 8)) + '</text>');
+    }
+  }
+
+  function bpxDrawTitleBlock(s, x, y, w, h, t, meta) {
+    var r1 = 42, r2 = 20, keyW = 54;
+    var drawingNo = (t && t.id) ? String(t.id) : "N";
+    s.push(bpxRect("bpx-title-block", x, y, w, h));
+    s.push(bpxLine("bpx-title-line", x, y + r1, x + w, y + r1));
+    s.push(bpxLine("bpx-title-line", x, y + r1 + r2, x + w, y + r1 + r2));
+    s.push(bpxLine("bpx-title-line", x + keyW, y, x + keyW, y + h));
+    s.push('<text class="bpx-title-key" x="' + bpxN(x + 7) + '" y="' + bpxN(y + 24) + '">業務名</text>');
+    s.push('<text class="bpx-title-main" x="' + bpxN(x + keyW + 8) + '" y="' + bpxN(y + 16) + '">' + bpxEsc(bpxClip((t && t.name) ? t.name : "工場", 16)) + '</text>');
+    s.push('<text class="bpx-title-sub" x="' + bpxN(x + keyW + 8) + '" y="' + bpxN(y + 32) + '">新工場 実施設計</text>');
+    s.push('<text class="bpx-title-key" x="' + bpxN(x + 7) + '" y="' + bpxN(y + r1 + 14) + '">図番</text>');
+    s.push('<text class="bpx-title-value" x="' + bpxN(x + keyW + 8) + '" y="' + bpxN(y + r1 + 14) + '">' + bpxEsc(drawingNo) + '</text>');
+    s.push('<text class="bpx-title-key" x="' + bpxN(x + 7) + '" y="' + bpxN(y + r1 + r2 + 14) + '">図面名</text>');
+    s.push('<text class="bpx-title-value" x="' + bpxN(x + keyW + 8) + '" y="' + bpxN(y + r1 + r2 + 14) + '">' + bpxEsc(bpxClip(meta.drawing, 18)) + '</text>');
+  }
+
+  function bpxDrawNorthAndScale(s) {
+    var nx = 752, ny = 398;
+    s.push('<g class="bpx-north"><line x1="' + nx + '" y1="' + (ny + 25) + '" x2="' + nx + '" y2="' + (ny - 20) + '"/><polygon points="' + (nx - 6) + "," + (ny - 9) + " " + nx + "," + (ny - 24) + " " + (nx + 6) + "," + (ny - 9) + '"/><text x="' + nx + '" y="' + (ny + 39) + '" text-anchor="middle">N</text></g>');
+    s.push('<text class="bpx-scale" x="620" y="486">S=1:200</text>');
+  }
+
   function renderBlueprint(t, order) {
     var host = document.getElementById("blueprint");
     if (!host) return;
-    var n = order.length;
-    var VW = 1060, VH = 540;
-    var RX = VW - 16 - 224;            // 右パネル開始X
-    var bayM = 8, depthM = 24, totalM = n * bayM, floorM = totalM * depthM, siteM = Math.round(floorM * 2.4);
 
-    var bx = 176, by = 172, bh = 196, wall = 8;
-    var bw = RX - bx - 150; if (bw > 560) bw = 560;
-    var innerX = bx + wall, innerY = by + wall, innerW = bw - wall * 2, innerH = bh - wall * 2;
-    var gap = 5, roomW = (innerW - gap * (n - 1)) / n, cy = innerY + innerH / 2;
-    var sTop = 56, sBot = VH - 26, sL = 34, yW = 74;
+    var stateRef = (typeof state !== "undefined" && state) ? state : {};
+    var winState = null;
+    try { winState = (typeof window !== "undefined" && window.CaddiState) ? window.CaddiState() : null; } catch (e) { winState = null; }
+    var method = (winState && winState.prodMethod) || stateRef.prodMethod || "cell";
+    if (method !== "cell" && method !== "line" && method !== "functional") method = "cell";
 
+    var meta = bpxMethodMeta(method);
+    var flow = bpxOrderedItems(t || {}, order || []);
+    var g = bpxBaseGeometry();
+    var xBays = Math.max(4, Math.min(7, flow.length + 1));
+    var yBays = 4;
     var s = [];
-    s.push('<svg viewBox="0 0 ' + VW + ' ' + VH + '" xmlns="http://www.w3.org/2000/svg" class="bp-svg" role="img" aria-label="工場配置図">');
-    s.push('<defs><pattern id="bphatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(120,132,140,0.5)" stroke-width="1"/></pattern></defs>');
-    s.push('<rect class="bp-border" x="10" y="10" width="' + (VW - 20) + '" height="' + (VH - 20) + '"/>');
-    s.push('<text class="bp-title-main" x="' + (RX / 2 + 10) + '" y="40" text-anchor="middle">' + t.name + '　新工場 配置図</text>');
 
-    // 敷地境界（不整形）
-    var poly = [[sL + 20, sTop + 16], [RX - 40, sTop], [RX - 8, 128], [RX - 16, sBot], [sL + 34, sBot]];
-    s.push('<polygon class="bp-site" points="' + poly.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '"/>');
+    s.push('<svg viewBox="0 0 1060 560" xmlns="http://www.w3.org/2000/svg" class="bpx-svg" role="img" aria-label="工場棟平面図">');
+    s.push('<defs><pattern id="bpx-hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="var(--steel)" stroke-width="0.7" opacity="0.48"/></pattern><marker id="bpx-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>');
 
-    // 資材ヤード
-    s.push('<rect class="bp-open" x="' + bx + '" y="' + (by - 68) + '" width="' + bw + '" height="50"/>');
-    s.push('<text class="bp-aux-lbl" x="' + (bx + 8) + '" y="' + (by - 68 + 20) + '">資材ヤード</text>');
+    s.push(bpxRect("bpx-sheet-border", 10, 10, 1040, 540));
+    s.push(bpxRect("bpx-sheet-inner", 18, 18, 1024, 524));
+    s.push('<text class="bpx-sheet-label" x="42" y="42">' + bpxEsc(meta.drawing) + '</text>');
+    s.push('<text class="bpx-sheet-sub" x="42" y="59">' + bpxEsc(meta.note) + ' / 通り芯・柱・寸法・機器番号照合図</text>');
 
-    // トラックヤード（ハッチ）
-    var yH = bh - 36;
-    s.push('<rect class="bp-yard" x="' + (bx - yW - 12) + '" y="' + (by + 18) + '" width="' + yW + '" height="' + yH + '" fill="url(#bphatch)"/>');
-    s.push('<text class="bp-aux-lbl" x="' + (bx - yW - 6) + '" y="' + (by + 34) + '">受入</text>');
-    s.push('<text class="bp-aux-lbl" x="' + (bx - yW - 6) + '" y="' + (by + 47) + '" style="font-size:8px">TRUCK</text>');
-    s.push('<rect class="bp-yard" x="' + (bx + bw + 12) + '" y="' + (by + 18) + '" width="' + yW + '" height="' + yH + '" fill="url(#bphatch)"/>');
-    s.push('<text class="bp-aux-lbl" x="' + (bx + bw + 18) + '" y="' + (by + 34) + '">出荷</text>');
-    s.push('<text class="bp-aux-lbl" x="' + (bx + bw + 18) + '" y="' + (by + 47) + '" style="font-size:8px">TRUCK</text>');
+    bpxDrawDocksAndSite(s, g);
+    bpxDrawDimensions(s, g, xBays, yBays);
+    bpxDrawBaseRooms(s, g);
+    bpxDrawGrid(s, g, xBays, yBays);
+    bpxDrawDoors(s, g);
 
-    // 主建屋
-    s.push('<rect class="bp-wall" x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '"/>');
-    s.push('<rect class="bp-floor" x="' + innerX + '" y="' + innerY + '" width="' + innerW + '" height="' + innerH + '"/>');
-    function cxOf(k) { return innerX + k * (roomW + gap) + roomW / 2; }
-    // 安全通路（外周・破線）
-    s.push('<rect class="bp-aisle" x="' + (innerX + 4) + '" y="' + (innerY + 4) + '" width="' + (innerW - 8) + '" height="' + (innerH - 8) + '"/>');
-    // 工程室 + 設備シンボル
-    for (var i = 0; i < n; i++) {
-      var name = t.processFlow[order[i]];
-      var clean = t.cleanZones.indexOf(name) >= 0;
-      var rx = innerX + i * (roomW + gap), cx = rx + roomW / 2;
-      s.push('<rect class="bp-room' + (clean ? ' clean' : '') + '" x="' + rx + '" y="' + innerY + '" width="' + roomW + '" height="' + innerH + '"/>');
-      s.push('<text class="bp-code" x="' + (rx + 5) + '" y="' + (innerY + 14) + '">' + (i + 1) + '</text>');
-      s.push('<text class="bp-label" x="' + cx + '" y="' + (innerY + innerH * 0.30) + '" text-anchor="middle" style="font-size:11px">' + name + '</text>');
-      if (clean) s.push('<text class="bp-clean" x="' + cx + '" y="' + (innerY + innerH * 0.30 + 13) + '" text-anchor="middle">CLEAN</text>');
-      s.push(bpEquip(name, cx, innerY + innerH * 0.62));
-      // 構造柱（室境界の上下）
-      s.push('<rect class="bp-col" x="' + (rx - 2) + '" y="' + (innerY - 2) + '" width="4" height="4"/><rect class="bp-col" x="' + (rx - 2) + '" y="' + (innerY + innerH - 2) + '" width="4" height="4"/>');
-    }
-    s.push('<rect class="bp-col" x="' + (innerX + n * (roomW + gap) - gap - 2) + '" y="' + (innerY - 2) + '" width="4" height="4"/>');
+    var sideSet = bpxComputeSidePositions(flow, g);
+    if (method === "line") bpxDrawLineLayout(s, flow, g);
+    else if (method === "functional") bpxDrawFunctionalLayout(s, flow, g);
+    else bpxDrawCellLayout(s, flow, g);
 
-    // ==== 搬送ライン（分岐・合流・リワーク：1直線にしない） ====
-    var bA = Math.max(1, Math.min(n - 3, Math.floor(n * 0.30)));
-    var bM = Math.max(bA + 1, Math.min(n - 2, Math.floor(n * 0.66)));
-    var brX = cxOf(bA) + roomW * 0.35, mgX = cxOf(bM) - roomW * 0.35;
-    if (mgX < brX + 18) mgX = brX + 18;
-    var laY = cy - innerH * 0.26, lbY = cy + innerH * 0.26, rwY = cy + innerH * 0.42;
-    s.push(bpConv([[bx, cy], [brX, cy]], "bp-conv"));                                  // 主搬入
-    s.push(bpConv([[brX, cy], [brX, laY], [mgX, laY], [mgX, cy]], "bp-conv bp-lane")); // 加工A(上)
-    s.push(bpConv([[brX, cy], [brX, lbY], [mgX, lbY], [mgX, cy]], "bp-conv bp-lane")); // 加工B(下)
-    s.push(bpConv([[mgX, cy], [bx + bw, cy]], "bp-conv"));                             // 合流→検査→出荷
-    var rwEnd = Math.min(bx + bw - 8, cxOf(bM) + roomW * 0.5);                          // リワーク（不良戻し）
-    s.push(bpConv([[rwEnd, cy], [rwEnd, rwY], [mgX - 10, rwY], [mgX - 10, cy]], "bp-rework"));
-    s.push('<circle class="bp-junc" cx="' + brX + '" cy="' + cy + '" r="3"/><circle class="bp-junc" cx="' + mgX + '" cy="' + cy + '" r="3"/>');
-    s.push('<text class="bp-flowlbl" x="' + brX + '" y="' + (laY - 4) + '" text-anchor="middle">加工A</text>');
-    s.push('<text class="bp-flowlbl" x="' + brX + '" y="' + (lbY + 12) + '" text-anchor="middle">加工B</text>');
-    s.push('<text class="bp-flowlbl" x="' + ((rwEnd + mgX) / 2) + '" y="' + (rwY + 11) + '" text-anchor="middle">リワーク</text>');
-    // バッファ（合流手前）
-    s.push('<rect class="bp-buffer" x="' + (mgX - 16) + '" y="' + (cy - 7) + '" width="12" height="14"/><text class="bp-flowlbl" x="' + (mgX - 10) + '" y="' + (cy + 17) + '" text-anchor="middle">BUF</text>');
+    bpxDrawSideEquipment(s, sideSet);
+    bpxDrawColumns(s, g, xBays, yBays);
+    bpxDrawNorthAndScale(s);
+    bpxDrawEquipmentTable(s, 790, 64, 250, flow, method);
+    bpxDrawTitleBlock(s, 790, 454, 250, 82, t || {}, meta);
 
-    // ドック（扉＋スイング）
-    s.push('<rect class="bp-door" x="' + (bx - 3) + '" y="' + (cy - 18) + '" width="6" height="36"/>');
-    s.push('<path class="bp-swing" d="M' + bx + ',' + (cy - 18) + ' A36,36 0 0 1 ' + bx + ',' + (cy + 18) + '"/>');
-    s.push('<rect class="bp-door" x="' + (bx + bw - 3) + '" y="' + (cy - 18) + '" width="6" height="36"/>');
-    s.push('<path class="bp-swing" d="M' + (bx + bw) + ',' + (cy - 18) + ' A36,36 0 0 0 ' + (bx + bw) + ',' + (cy + 18) + '"/>');
-
-    // 事務所・駐車場・進入路
-    var oX = bx - yW - 12, oY = sBot - 66;
-    s.push('<rect class="bp-aux" x="' + oX + '" y="' + oY + '" width="104" height="50"/>');
-    s.push('<text class="bp-aux-lbl" x="' + (oX + 52) + '" y="' + (oY + 30) + '" text-anchor="middle">事務所</text>');
-    var pX = oX + 124, pY = sBot - 58, pW = 176, pH = 40;
-    s.push('<rect x="' + pX + '" y="' + pY + '" width="' + pW + '" height="' + pH + '" style="fill:none;stroke:var(--steel);stroke-width:1"/>');
-    for (var kk = 1; kk < 9; kk++) s.push('<line class="bp-stall" x1="' + (pX + kk * pW / 9) + '" y1="' + pY + '" x2="' + (pX + kk * pW / 9) + '" y2="' + (pY + pH) + '"/>');
-    s.push('<text class="bp-aux-lbl" x="' + (pX + 4) + '" y="' + (pY - 4) + '">駐車場</text>');
-    s.push('<line class="bp-road" x1="' + (sL + 34) + '" y1="' + (sBot - 2) + '" x2="' + (RX - 12) + '" y2="' + (sBot - 2) + '"/>');
-    s.push('<text class="bp-aux-lbl" x="' + (pX + pW + 14) + '" y="' + (sBot - 10) + '">進入路</text>');
-
-    // 建屋幅 寸法
-    var ty = by - 8;
-    s.push('<g class="bp-dim"><line x1="' + bx + '" y1="' + ty + '" x2="' + (bx + bw) + '" y2="' + ty + '"/><line x1="' + bx + '" y1="' + (ty - 4) + '" x2="' + bx + '" y2="' + (ty + 4) + '"/><line x1="' + (bx + bw) + '" y1="' + (ty - 4) + '" x2="' + (bx + bw) + '" y2="' + (ty + 4) + '"/></g>');
-    s.push('<text class="bp-dimtext" x="' + (bx + bw / 2) + '" y="' + (ty - 5) + '" text-anchor="middle">' + totalM + ' m</text>');
-
-    // 方位記号
-    var nx = RX - 30, ny = sBot - 46;
-    s.push('<g class="bp-north"><line x1="' + nx + '" y1="' + (ny + 16) + '" x2="' + nx + '" y2="' + (ny - 12) + '"/><polyline points="' + (nx - 5) + ',' + (ny - 5) + ' ' + nx + ',' + (ny - 14) + ' ' + (nx + 5) + ',' + (ny - 5) + '"/><text x="' + nx + '" y="' + (ny + 30) + '" text-anchor="middle">N</text></g>');
-
-    // 右パネル：表題欄
-    var PX = RX + 16, PW = VW - 16 - PX, TY = 20, rowH = 22;
-    var rows = [
-      ['図番', t.id], ['名称', t.name], ['立地', LOC_LABEL[state.location]],
-      ['敷地面積', siteM.toLocaleString('ja-JP') + ' m²'],
-      ['建築面積', floorM.toLocaleString('ja-JP') + ' m²'],
-      ['延床面積', floorM.toLocaleString('ja-JP') + ' m²'],
-      ['縮尺', '1:300'], ['工期', t.buildMonths + ' ヶ月'], ['作図', 'CaddiPlant AI']
-    ];
-    var TH = rowH * rows.length, colX = PX + 76;
-    s.push('<rect class="bp-title-box" x="' + PX + '" y="' + TY + '" width="' + PW + '" height="' + TH + '"/>');
-    s.push('<line class="bp-title-line" x1="' + colX + '" y1="' + TY + '" x2="' + colX + '" y2="' + (TY + TH) + '"/>');
-    for (var r = 0; r < rows.length; r++) {
-      var yy = TY + rowH * r;
-      if (r > 0) s.push('<line class="bp-title-line" x1="' + PX + '" y1="' + yy + '" x2="' + (PX + PW) + '" y2="' + yy + '"/>');
-      s.push('<text class="bp-tk" x="' + (PX + 8) + '" y="' + (yy + rowH / 2) + '">' + rows[r][0] + '</text>');
-      s.push('<text class="bp-tv" x="' + (colX + 8) + '" y="' + (yy + rowH / 2) + '" style="font-size:11px">' + rows[r][1] + '</text>');
-    }
-
-    // 右パネル：凡例
-    var LY = TY + TH + 22;
-    s.push('<text class="bp-legtitle" x="' + PX + '" y="' + LY + '">凡例（工程）</text>');
-    var ly = LY + 17;
-    for (var m = 0; m < n; m++) {
-      s.push('<text class="bp-legnum" x="' + PX + '" y="' + ly + '">' + (m + 1) + '.</text>');
-      s.push('<text class="bp-legtext" x="' + (PX + 22) + '" y="' + ly + '">' + t.processFlow[order[m]] + '</text>');
-      ly += 15;
-    }
-
-    s.push('</svg>');
-    host.innerHTML = s.join('');
+    s.push("</svg>");
+    host.innerHTML = s.join("");
   }
-
-  // ---- 立地・調達 最適化（SCM） ----
   function renderScm() {
     var host = document.getElementById("scmMap"); if (!host) return;
     var data = SITE_DATA[state.location] || SITE_DATA.domestic;
@@ -2415,6 +3257,22 @@
   })();
 
   wireDecSens();
+  (function wirePmethod() {
+    var host = document.getElementById("pmethod"); if (!host) return;
+    var notes = { cell: "U字セルを並列・多能工の一個流し（多品種向け）", line: "1本の流れライン＋かんばん・タクト同期（量産向け）", functional: "機械を機能別ブロックに配置・製品が横断（多品種少量向け）" };
+    function refresh() {
+      var btns = host.querySelectorAll("button");
+      for (var i = 0; i < btns.length; i++) btns[i].setAttribute("aria-pressed", btns[i].getAttribute("data-m") === state.prodMethod ? "true" : "false");
+      var note = document.getElementById("pmethodNote"); if (note) note.textContent = notes[state.prodMethod] || "";
+    }
+    host.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      state.prodMethod = b.getAttribute("data-m");
+      refresh();
+      if (view.tmpl) renderBlueprint(view.tmpl, view.order);
+    });
+    refresh();
+  })();
   document.querySelector(".layout").classList.add("collapsed"); // 既定は左カラムを畳んで出力に集中
   update();
 })();
