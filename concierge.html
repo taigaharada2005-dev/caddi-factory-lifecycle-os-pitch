@@ -3144,6 +3144,15 @@
     }
     return null;
   }
+  // 生産方式(cell/line/functional)による特性補正。3Dシミュレーションの傾向(セル=搬送距離大, ライン=効率的搬送, 機能別=横断移動で非効率)と整合させる
+  var PROD_METHOD_ADJUST = {
+    cell: { capex: 0.90, ops: 1.12, months: 0.97 },        // 搬送自動化が少なく設備投資は抑えめ、多能工で人員は増、納期は素早い
+    line: { capex: 1.14, ops: 0.85, months: 1.05 },        // コンベア自動化で投資増、人員は減、ライン据付で納期やや増
+    functional: { capex: 1.0, ops: 1.08, months: 1.10 }    // 横断搬送の非効率で人員・納期ともに悪化
+  };
+  function prodMethodLabel(m) {
+    return { cell: "セル生産方式", line: "ライン生産方式（トヨタ方式）", functional: "機能別配置" }[m] || "セル生産方式";
+  }
   function renderDecision(t) {
     if (!t || !document.getElementById("decTable")) return;
     var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
@@ -3151,9 +3160,11 @@
     var target = Math.round(a.units * (VOL_MULT[state.volume] || 1) * 10000);
     var budgetCap = { s: 30, m: 100, l: 500, xl: 1500 }[state.budget] || 100;
     var area = t.processFlow.length * 8 * 24;
+    var pmAdj = PROD_METHOD_ADJUST[state.prodMethod] || PROD_METHOD_ADJUST.cell;
     function variant(pr) {
       var r = runDesignSearch(mkDecInput(t, pr)).best;
-      return { cap: r.monthlyCap, capex: r.capexOku, months: r.months, ops: r.operators, score: r.score, pay: paybackOf(r.capexOku, r.monthlyCap, r.months, price, margin), area: area };
+      var capex = r.capexOku * pmAdj.capex, months = r.months * pmAdj.months, ops = Math.round(r.operators * pmAdj.ops);
+      return { cap: r.monthlyCap, capex: capex, months: months, ops: ops, score: r.score, pay: paybackOf(capex, r.monthlyCap, months, price, margin), area: area };
     }
     var rec = variant(dsPriority()), low = variant("cost"), fast = variant("time");
     decRec = { v: rec, price: price, margin: margin, target: target };
@@ -3208,7 +3219,8 @@
     var PRLABEL = { cost: "コスト最小", time: "立上げ最短", staff: "人員最小", capacity: "生産能力最大" };
     document.getElementById("decNote").innerHTML =
       '推奨案＝要件から判定した最重視軸「<b>' + (PRLABEL[dsPriority()] || "コスト最小") + '</b>」に沿った案。低コスト案は建設投資を、高速立上げ案は立上げ期間を最小化します。'
-      + '<b>適合度スコア</b>は各案が自らの重視軸でどれだけ優れるかを表すため、推奨案が必ずしも最高スコアとは限りません（低コスト案の方が高スコアになることもあります）。';
+      + '<b>適合度スコア</b>は各案が自らの重視軸でどれだけ優れるかを表すため、推奨案が必ずしも最高スコアとは限りません（低コスト案の方が高スコアになることもあります）。'
+      + ' 3案とも設計図面で選択中の生産方式「<b>' + prodMethodLabel(state.prodMethod) + '</b>」の特性（設備投資・必要人員・立上げ期間）を反映しています。';
 
     document.getElementById("decAssume").innerHTML =
       '<div>製品単価: ¥' + nf(price) + ' /個（想定）</div>'
@@ -3672,6 +3684,7 @@
       refresh();
       if (view.tmpl) renderBlueprint(view.tmpl, view.order);
       if (window.CaddiPlant3D && view.tmpl) window.CaddiPlant3D.render(view.tmpl, view.order);
+      if (view.tmpl) renderDecision(view.tmpl);
     });
     refresh();
   })();
