@@ -4349,6 +4349,7 @@ if (mount) {
     el.style.background = kind === "zone" ? (dark ? "rgba(20,30,42,0.5)" : "rgba(255,255,255,0.62)") : (dark ? "rgba(18,27,38,0.8)" : "rgba(255,255,255,0.86)");
     el.style.border = dark ? "1px solid rgba(220,235,255,0.18)" : "1px solid rgba(30,44,58,0.13)";
     el.style.boxShadow = "0 3px 12px rgba(0,0,0,0.13)";
+    el.style.pointerEvents = "none"; // ラベル上でもOrbitControlsのドラッグを通す（agyレビュー）
   }
 
   function updateLabels() {
