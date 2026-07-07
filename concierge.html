@@ -376,9 +376,19 @@
   .scmwhy b { color: var(--ink); }
   .vendors h4 { margin: 4px 0 6px; font-size: 0.78rem; font-family: var(--font-display); font-weight: 700; }
   .vendors h4 .c { font-family: var(--font-mono); font-size: 0.66rem; color: var(--accent); margin-right: 6px; }
-  .vrow { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 0.8rem; align-items: baseline; }
+  .vrow { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 0.8rem; align-items: center; }
   .vrow .vm { color: var(--steel); font-family: var(--font-mono); font-size: 0.7rem; }
-  .vrow .vfit { font-family: var(--font-mono); font-size: 0.74rem; color: var(--good); font-variant-numeric: tabular-nums; }
+  .vrow .vfit { font-family: var(--font-mono); font-size: 0.74rem; color: var(--good); font-variant-numeric: tabular-nums; text-align: right; }
+  .vrow .vact { display: flex; align-items: center; gap: 6px; justify-content: flex-end; min-width: 88px; }
+  .v-req, .v-ord { border: 1px solid var(--line-strong); background: var(--paper); color: var(--steel-deep); border-radius: 100px; padding: 4px 11px; font-size: 0.72rem; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .v-req:hover, .v-ord:hover { border-color: var(--accent); color: var(--ink); }
+  .v-ord { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .v-st { font-family: var(--font-mono); font-size: 0.7rem; white-space: nowrap; }
+  .v-st.req { color: var(--steel); }
+  .v-st.quo { color: var(--steel-deep); }
+  .v-st.ord { color: var(--good); font-weight: 700; }
+  .vhead-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .vsum { font-family: var(--font-mono); font-size: 0.68rem; color: var(--accent-deep); }
   .scm-sea { fill: rgba(120,162,196,0.20); }
   .scm-land { fill: var(--panel-deep); stroke: var(--steel); stroke-width: 1; }
   .scm-grid { stroke: rgba(120,162,196,0.28); stroke-width: 0.6; }
@@ -485,7 +495,12 @@
   .decassume summary { cursor: pointer; color: var(--accent-deep); font-family: var(--font-mono); font-size: 0.76rem; }
   .decassume-body { margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 6px; font-family: var(--font-mono); font-size: 0.72rem; }
   .decassume-body div { border: 1px solid var(--line); border-radius: 5px; padding: 6px 9px; background: var(--panel-deep); color: var(--steel-deep); }
-  .decsens h4 { margin: 0 0 8px; font-size: 0.8rem; font-family: var(--font-display); font-weight: 700; }
+  .decsens { margin-top: 2px; }
+  .decsens > summary { cursor: pointer; font-size: 0.8rem; font-family: var(--font-mono); color: var(--accent-deep); margin-bottom: 8px; }
+  .collapse-sec { border: 1px solid var(--line); border-radius: 8px; padding: 0 14px; }
+  .collapse-sec > summary { cursor: pointer; font-size: 0.82rem; font-family: var(--font-mono); color: var(--accent-deep); padding: 11px 0; }
+  .collapse-sec[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  .collapse-sec .detail-grid { border: none; padding: 0 0 12px; }
   .sensrow { display: grid; grid-template-columns: 5em 1fr 3.6em; gap: 10px; align-items: center; margin-bottom: 6px; font-size: 0.8rem; color: var(--steel-deep); }
   .sensrow input[type=range] { width: 100%; accent-color: var(--accent); }
   .sensrow .sensv { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink); text-align: right; }
@@ -744,17 +759,20 @@
         <div class="spec"><span class="sk">満稼働まで</span><span class="sv"><span id="ramp">0</span></span><span class="su">ヶ月（ランプアップ）</span></div>
       </div>
 
-      <div class="detail-grid">
-        <div class="box">
-          <h3><span class="c">EQ</span>主要設備</h3>
-          <div class="chips" id="equip"></div>
+      <details class="collapse-sec phasecard" data-phase="concept">
+        <summary>主要設備・ネットワーク実績を表示</summary>
+        <div class="detail-grid">
+          <div class="box">
+            <h3><span class="c">EQ</span>主要設備</h3>
+            <div class="chips" id="equip"></div>
+          </div>
+          <div class="box">
+            <h3><span class="c">NET</span>ネットワーク実績</h3>
+            <div class="simrow"><span class="big" id="net">0</span><span class="lbl">社の類似工場データに<br>基づく提案</span></div>
+            <div class="provenance"><span class="dotg"></span><span>CADDiの受発注実績（図面×工程×コスト）から観測できる範囲で算出。歩留まりは含みません。</span></div>
+          </div>
         </div>
-        <div class="box">
-          <h3><span class="c">NET</span>ネットワーク実績</h3>
-          <div class="simrow"><span class="big" id="net">0</span><span class="lbl">社の類似工場データに<br>基づく提案</span></div>
-          <div class="provenance"><span class="dotg"></span><span>CADDiの受発注実績（図面×工程×コスト）から観測できる範囲で算出。歩留まりは含みません。</span></div>
-        </div>
-      </div>
+      </details>
 
       <div class="floorcard">
         <div class="fhead">
@@ -798,13 +816,13 @@
             <summary>数字の根拠（前提）を表示</summary>
             <div class="decassume-body" id="decAssume"></div>
           </details>
-          <div class="decsens">
-            <h4>感度分析（前提を動かすと投資回収が変わる）</h4>
+          <details class="decsens">
+            <summary>感度分析（前提を動かすと投資回収が変わる）</summary>
             <div class="sensrow"><label>製品単価</label><input type="range" id="sensPrice" min="-30" max="30" value="0" step="5"><span class="sensv" id="sensPriceV">±0%</span></div>
             <div class="sensrow"><label>生産量</label><input type="range" id="sensVol" min="-30" max="30" value="0" step="5"><span class="sensv" id="sensVolV">±0%</span></div>
             <div class="sensrow"><label>人件費</label><input type="range" id="sensLabor" min="-30" max="30" value="0" step="5"><span class="sensv" id="sensLaborV">±0%</span></div>
             <div class="sensout" id="sensOut">—</div>
-          </div>
+          </details>
         </div>
       </div>
 
@@ -1280,23 +1298,50 @@
     document.getElementById("scmWhy").innerHTML = '<b>' + best.nm + '</b> をSCM最適地として推奨。強み：' + whyparts.join('・') + '。CADDiネットワーク上の近接サプライヤーと港湾ハブへのアクセスを加味。';
   }
 
+  // 実行パートナーと"つなぐ"：見積依頼→見積受領→発注 のモック遷移
+  var vendInfo = {}, vendorState = {}, lastVendorTmpl = "";
+  function vStatusHtml(id) {
+    var s = vendorState[id];
+    if (!s || s.s === "idle") return '<button class="v-req" type="button" data-v="' + id + '">見積依頼</button>';
+    if (s.s === "requesting") return '<span class="v-st req">見積依頼中…</span>';
+    if (s.s === "quoted") return '<span class="v-st quo">見積 ¥' + s.q + '億・' + s.mo + 'ヶ月</span><button class="v-ord" type="button" data-v="' + id + '">この業者で発注</button>';
+    if (s.s === "ordered") return '<span class="v-st ord">✓ 発注済</span>';
+    return '';
+  }
   function renderVendors() {
     var host = document.getElementById("vendors"); if (!host) return;
     var t = view.tmpl; if (!t) return;
-    var locF = LOC_FACTOR[state.location] || 1;
-    var cap = Math.round(t.capexOku * locF), lo = Math.round(cap * 0.45), hi = Math.round(cap * 0.62);
+    if (t.id !== lastVendorTmpl) { vendorState = {}; lastVendorTmpl = t.id; }
+    var cap = Math.round(t.capexOku * capexMult()), lo = Math.round(cap * 0.45), hi = Math.round(cap * 0.62);
     var jobsA = 20 + (t.networkFactories % 30), jobsB = 12 + (t.id.charCodeAt(3) % 20);
+    vendInfo = {};
+    function vend(id, name, meta, fit, costTxt, q, mo) {
+      vendInfo[id] = { q: q, mo: mo };
+      return '<div class="vrow"><span><b>' + name + '</b><br><span class="vm">' + meta + '</span></span>'
+        + '<span class="vfit">適合 ' + fit + '%' + (costTxt ? '<br>' + costTxt : '') + '</span>'
+        + '<span class="vact">' + vStatusHtml(id) + '</span></div>';
+    }
+    var reqN = 0, ordN = 0, kk;
+    for (kk in vendorState) { if (vendorState[kk].s === "quoted" || vendorState[kk].s === "requesting") reqN++; if (vendorState[kk].s === "ordered") ordN++; }
+    var bmo = t.buildMonths + buildMonthsAdd();
     var h = [];
-    h.push('<h4><span class="c">EPC</span>建設・EPC パートナー候補</h4>');
-    h.push('<div class="vrow"><span><b>総合建設・EPC A社</b><br><span class="vm">プラント建設 実績' + jobsA + '件 ／ 納期 ' + t.buildMonths + 'ヶ月</span></span><span class="vfit">適合 94%<br>¥' + lo + '〜' + hi + '億</span></div>');
-    h.push('<div class="vrow"><span><b>プラントEPC B社</b><br><span class="vm">同業種 実績' + jobsB + '件 ／ 納期 ' + (t.buildMonths + 2) + 'ヶ月</span></span><span class="vfit">適合 88%<br>¥' + Math.round(lo * 1.05) + '〜' + Math.round(hi * 1.08) + '億</span></div>');
+    h.push('<div class="vhead-row"><h4><span class="c">EPC</span>建設・EPC パートナー候補</h4>' + (reqN + ordN ? '<span class="vsum">見積依頼 ' + reqN + ' ／ 発注 ' + ordN + '</span>' : '') + '</div>');
+    h.push(vend("epcA", "総合建設・EPC A社", "プラント建設 実績" + jobsA + "件 ／ 納期 " + bmo + "ヶ月", 94, "¥" + lo + "〜" + hi + "億", Math.round((lo + hi) / 2), bmo));
+    h.push(vend("epcB", "プラントEPC B社", "同業種 実績" + jobsB + "件 ／ 納期 " + (bmo + 2) + "ヶ月", 88, "¥" + Math.round(lo * 1.05) + "〜" + Math.round(hi * 1.08) + "億", Math.round((lo + hi) / 2 * 1.06), bmo + 2));
     h.push('<h4 style="margin-top:12px"><span class="c">EQ</span>主要設備メーカー候補</h4>');
     var eq = t.keyEquipment.slice(0, 4);
     for (var i = 0; i < eq.length; i++) {
-      var fit = 96 - i * 4 - (eq[i].length % 3), mo = 4 + (i % 3);
-      h.push('<div class="vrow"><span><b>' + eq[i] + '</b><br><span class="vm">設備メーカー' + String.fromCharCode(88 + i) + ' ／ 納期 ' + mo + 'ヶ月</span></span><span class="vfit">適合 ' + fit + '%</span></div>');
+      var fit = 96 - i * 4 - (eq[i].length % 3), mo = 4 + (i % 3), q = Math.max(1, Math.round(cap * (0.08 - i * 0.012)));
+      h.push(vend("eq" + i, eq[i], "設備メーカー" + String.fromCharCode(88 + i) + " ／ 納期 " + mo + "ヶ月", fit, "", q, mo));
     }
     host.innerHTML = h.join('');
+    host.onclick = function (e) {
+      var rq = e.target.closest(".v-req"), od = e.target.closest(".v-ord");
+      if (rq) {
+        var id = rq.getAttribute("data-v"); vendorState[id] = { s: "requesting" }; renderVendors();
+        setTimeout(function () { if (vendorState[id] && vendorState[id].s === "requesting") { vendorState[id] = { s: "quoted", q: vendInfo[id].q, mo: vendInfo[id].mo }; renderVendors(); } }, 800);
+      } else if (od) { vendorState[od.getAttribute("data-v")] = { s: "ordered" }; renderVendors(); }
+    };
   }
 
   // ---- インパクト評価 ----
