@@ -3702,6 +3702,7 @@
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 var mount = document.getElementById("stage3d");
 
@@ -3753,6 +3754,14 @@ if (mount) {
   if ("outputColorSpace" in renderer && THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  // 軽量IBL: 手続き的なRoomEnvironmentで金属/プラ表面に環境反射を与える(外部画像不要)
+  try {
+    var pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+  } catch (e) { /* IBL非対応環境ではフラットのまま描画続行 */ }
   renderer.domElement.style.position = "absolute";
   renderer.domElement.style.inset = "0";
   renderer.domElement.style.width = "100%";
