@@ -3717,6 +3717,7 @@ if (mount) {
   var labelLayer;
   var panel;
   var toolbar;
+  var legendPanel;
   var metricsNodes = {};
   var buttons = {};
   var labelItems = [];
@@ -3934,6 +3935,27 @@ if (mount) {
     toolbar.style.maxWidth = "calc(100% - 20px)";
     overlay.appendChild(toolbar);
 
+    legendPanel = document.createElement("div");
+    legendPanel.style.position = "absolute";
+    legendPanel.style.left = "10px";
+    legendPanel.style.bottom = "10px";
+    legendPanel.style.maxWidth = "190px";
+    legendPanel.style.boxSizing = "border-box";
+    legendPanel.style.borderRadius = "8px";
+    legendPanel.style.padding = "8px 10px";
+    legendPanel.style.pointerEvents = "none";
+    legendPanel.style.backdropFilter = "blur(10px)";
+    legendPanel.style.boxShadow = "0 10px 26px rgba(0,0,0,0.18)";
+    legendPanel.style.fontSize = "10.5px";
+    legendPanel.style.lineHeight = "1.55";
+    legendPanel.innerHTML =
+      '<div style="font-weight:700;font-size:11px;margin-bottom:4px;">凡例</div>' +
+      '<div><span style="display:inline-block;width:9px;height:9px;background:#e0554a;border-radius:2px;margin-right:6px;"></span>ボトルネック工程（明滅）</div>' +
+      '<div><span style="display:inline-block;width:9px;height:9px;background:#8fb8d9;opacity:.55;border-radius:2px;margin-right:6px;"></span>クリーンゾーン（気密区画）</div>' +
+      '<div><span style="display:inline-block;width:9px;height:9px;background:#c98a4a;border-radius:2px;margin-right:6px;"></span>パレット・搬送車</div>' +
+      '<div><span style="display:inline-block;width:14px;height:2px;background:#6b7480;margin-right:6px;vertical-align:middle;"></span>ケーブルラック・配線</div>';
+    overlay.appendChild(legendPanel);
+
     buttons.generate = createPanelButton("Generate", function () {
       layoutVariant = (layoutVariant + 1) % 3;
       optimizedLayout = false;
@@ -3989,6 +4011,11 @@ if (mount) {
     if (toolbar) {
       toolbar.style.background = dark ? "rgba(16, 24, 34, 0.86)" : "rgba(255, 255, 255, 0.88)";
       toolbar.style.border = dark ? "1px solid rgba(178, 196, 220, 0.2)" : "1px solid rgba(20, 32, 48, 0.12)";
+    }
+    if (legendPanel) {
+      legendPanel.style.background = dark ? "rgba(16, 24, 34, 0.88)" : "rgba(255, 255, 255, 0.9)";
+      legendPanel.style.border = dark ? "1px solid rgba(178, 196, 220, 0.2)" : "1px solid rgba(20, 32, 48, 0.12)";
+      legendPanel.style.color = dark ? "#dfe8f2" : "#2c363d";
     }
     var btnList = [buttons.generate, buttons.simulate, buttons.optimize, buttons.reset];
     for (var i = 0; i < btnList.length; i++) {
