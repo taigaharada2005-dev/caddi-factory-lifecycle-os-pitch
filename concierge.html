@@ -971,6 +971,82 @@
   font-size: 11px;
   font-weight: 700;
 }
+.bpx-cable-trunk {
+  fill: none;
+  pointer-events: none;
+}
+
+.bpx-cable-trunk line[data-bpx-role="rail"] {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 7 4;
+  stroke-linecap: butt;
+  vector-effect: non-scaling-stroke;
+}
+
+.bpx-cable-trunk line[data-bpx-role="rung"] {
+  stroke: var(--accent);
+  stroke-width: 0.85;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+}
+
+.bpx-cable-branch {
+  fill: none;
+  stroke: var(--steel);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.bpx-panel rect {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+.bpx-panel path {
+  fill: none;
+  stroke: var(--steel);
+  stroke-width: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+
+.bpx-panel text {
+  fill: var(--accent-deep);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.bpx-grounding line {
+  stroke: var(--ink);
+  stroke-width: 0.9;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+}
+
+.bpx-grounding text {
+  fill: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.bpx-elec-legend rect {
+  fill: var(--panel-deep);
+  stroke: var(--line-strong);
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+.bpx-elec-legend text {
+  fill: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+}
 </style>
 
 <div class="wrap">
@@ -2025,6 +2101,167 @@
     }
   }
 
+  function bpxDrawElectrical(s, g, flow, sideSet) {
+    if (!s || !g) return;
+    flow = flow || [];
+    sideSet = sideSet || {};
+
+    var innerL = g.innerX;
+    var innerR = g.innerX + g.innerW;
+    var innerB = g.innerY + g.innerH;
+    var electricX = g.innerX + 412;
+    var electricY = g.innerY;
+    var electricW = Math.max(48, g.innerW - 412);
+    var electricH = g.topH || 48;
+    var trunkX1 = bpxClamp(innerL + 16, g.outerX + 8, g.outerX + g.outerW - 96);
+    var trunkX2 = bpxClamp(innerR - 16, trunkX1 + 96, g.outerX + g.outerW - 8);
+    var trunkY = bpxClamp(g.prodY - 4, g.outerY + 18, g.outerY + g.outerH - 26);
+    var tapX = bpxClamp(electricX + Math.min(72, electricW * 0.45), trunkX1 + 18, trunkX2 - 18);
+    var tapY = bpxClamp(electricY + electricH - 6, g.outerY + 10, trunkY - 7);
+    var i;
+
+    bpxElectricalRack(s, trunkX1, trunkX2, trunkY, tapX, tapY);
+
+    var targets = bpxElectricalTargets(flow, sideSet, g);
+    var branchXs = bpxElectricalBranchXs(targets, trunkX1 + 7, trunkX2 - 7, 7);
+    for (i = 0; i < targets.length; i++) {
+      var pt = targets[i].pt;
+      var bx = branchXs[i];
+      var px = bpxClamp(pt[0], g.outerX + 8, g.outerX + g.outerW - 8);
+      var branchTop = trunkY + 4;
+      var branchMaxY = Math.min(innerB - 12, Math.max(branchTop + 4, pt[1] - 8));
+      var stopY = bpxClamp(pt[1] - 18, branchTop + 4, branchMaxY);
+      s.push(bpxLine("bpx-cable-branch", bx, branchTop, bx, stopY));
+      if (Math.abs(bx - px) > 0.2) s.push(bpxLine("bpx-cable-branch", bx, stopY, px, stopY));
+    }
+
+    var panelY = bpxClamp(electricY + 9, g.outerY + 10, g.outerY + g.outerH - 38);
+    var panelX = bpxClamp(electricX + 13, g.outerX + 10, g.outerX + g.outerW - 124);
+    bpxElectricalPanel(s, panelX, panelY, "L-1");
+    bpxElectricalPanel(s, panelX + 40, panelY, "L-2");
+    bpxElectricalPanel(s, panelX + 80, panelY, "P-1");
+
+    bpxElectricalGrounding(s, g);
+    bpxElectricalLegend(s, flow.length);
+  }
+
+  function bpxClamp(v, min, max) {
+    v = Number(v);
+    if (!isFinite(v)) v = min;
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function bpxElectricalRack(s, x1, x2, y, tapX, tapY) {
+    var rail = 3;
+    var rungStep = 26;
+    var x, yy;
+    s.push('<g class="bpx-cable-trunk">');
+    s.push('<line data-bpx-role="rail" x1="' + bpxN(x1) + '" y1="' + bpxN(y - rail) + '" x2="' + bpxN(x2) + '" y2="' + bpxN(y - rail) + '"/>');
+    s.push('<line data-bpx-role="rail" x1="' + bpxN(x1) + '" y1="' + bpxN(y + rail) + '" x2="' + bpxN(x2) + '" y2="' + bpxN(y + rail) + '"/>');
+    for (x = x1 + 12; x <= x2 - 12; x += rungStep) {
+      s.push('<line data-bpx-role="rung" x1="' + bpxN(x) + '" y1="' + bpxN(y - rail) + '" x2="' + bpxN(x) + '" y2="' + bpxN(y + rail) + '"/>');
+    }
+    s.push('<line data-bpx-role="rail" x1="' + bpxN(tapX - rail) + '" y1="' + bpxN(tapY) + '" x2="' + bpxN(tapX - rail) + '" y2="' + bpxN(y - rail) + '"/>');
+    s.push('<line data-bpx-role="rail" x1="' + bpxN(tapX + rail) + '" y1="' + bpxN(tapY) + '" x2="' + bpxN(tapX + rail) + '" y2="' + bpxN(y - rail) + '"/>');
+    for (yy = tapY + 4; yy <= y - rail - 2; yy += 8) {
+      s.push('<line data-bpx-role="rung" x1="' + bpxN(tapX - rail) + '" y1="' + bpxN(yy) + '" x2="' + bpxN(tapX + rail) + '" y2="' + bpxN(yy) + '"/>');
+    }
+    s.push('</g>');
+  }
+
+  function bpxElectricalTargets(flow, sideSet, g) {
+    var out = [];
+    var i;
+    for (i = 0; i < flow.length; i++) bpxElectricalAddTarget(out, flow[i], g);
+    if (sideSet.receive) for (i = 0; i < sideSet.receive.length; i++) bpxElectricalAddTarget(out, sideSet.receive[i], g);
+    if (sideSet.ship) for (i = 0; i < sideSet.ship.length; i++) bpxElectricalAddTarget(out, sideSet.ship[i], g);
+    return out;
+  }
+
+  function bpxElectricalAddTarget(out, item, g) {
+    if (!item) return;
+    var pt = item.pt;
+    if (!pt || pt.length < 2 || !isFinite(pt[0]) || !isFinite(pt[1])) {
+      if (item.side === "ship") pt = [g.ship.x + g.ship.w / 2, g.ship.y + g.ship.h / 2];
+      else if (item.side === "receive") pt = [g.receive.x + g.receive.w / 2, g.receive.y + g.receive.h / 2];
+      else return;
+    }
+    var x = bpxClamp(pt[0], g.outerX + 8, g.outerX + g.outerW - 8);
+    var y = bpxClamp(pt[1], g.prodY + 10, g.innerY + g.innerH - 12);
+    if (bpxElectricalTargetExists(out, item, x, y)) return;
+    out.push({ item: item, pt: [x, y] });
+  }
+
+  function bpxElectricalTargetExists(out, item, x, y) {
+    for (var i = 0; i < out.length; i++) {
+      if (out[i].item === item) return true;
+      if (Math.abs(out[i].pt[0] - x) < 0.2 && Math.abs(out[i].pt[1] - y) < 0.2) return true;
+    }
+    return false;
+  }
+
+  function bpxElectricalBranchXs(targets, minX, maxX, gap) {
+    var sorted = [];
+    var out = [];
+    var i;
+    for (i = 0; i < targets.length; i++) sorted.push({ index: i, x: bpxClamp(targets[i].pt[0], minX, maxX) });
+    sorted.sort(function (a, b) { return a.x - b.x || a.index - b.index; });
+    i = 0;
+    while (i < sorted.length) {
+      var start = i;
+      var sum = sorted[i].x;
+      i++;
+      while (i < sorted.length && sorted[i].x - sorted[i - 1].x < gap) {
+        sum += sorted[i].x;
+        i++;
+      }
+      var count = i - start;
+      var base = sum / count;
+      var first = bpxClamp(base - (gap * (count - 1)) / 2, minX, maxX - gap * (count - 1));
+      for (var j = 0; j < count; j++) out[sorted[start + j].index] = first + gap * j;
+    }
+    return out;
+  }
+
+  function bpxElectricalPanel(s, x, y, label) {
+    var w = 28;
+    var h = 18;
+    var d = "M" + bpxN(x + 5) + "," + bpxN(y + h - 4) + " L" + bpxN(x + 13) + "," + bpxN(y + 4) +
+      " M" + bpxN(x + 13) + "," + bpxN(y + h - 4) + " L" + bpxN(x + 23) + "," + bpxN(y + 4) +
+      " M" + bpxN(x + 21) + "," + bpxN(y + h - 4) + " L" + bpxN(x + w - 4) + "," + bpxN(y + 7);
+    s.push('<g class="bpx-panel">');
+    s.push('<rect x="' + bpxN(x) + '" y="' + bpxN(y) + '" width="' + bpxN(w) + '" height="' + bpxN(h) + '" rx="1"/>');
+    s.push('<path d="' + d + '"/>');
+    s.push('<text x="' + bpxN(x + w / 2) + '" y="' + bpxN(y + h + 9) + '" text-anchor="middle">' + bpxEsc(label) + '</text>');
+    s.push('</g>');
+  }
+
+  function bpxElectricalGrounding(s, g) {
+    var x = bpxClamp(g.innerX + 8, g.outerX + 12, g.outerX + g.outerW - 92);
+    var y = bpxClamp(g.innerY + g.innerH - 8, g.outerY + 28, g.outerY + g.outerH - 8);
+    s.push('<g class="bpx-grounding">');
+    s.push('<line x1="' + bpxN(x) + '" y1="' + bpxN(y - 18) + '" x2="' + bpxN(x) + '" y2="' + bpxN(y - 10) + '"/>');
+    s.push('<line x1="' + bpxN(x - 8) + '" y1="' + bpxN(y - 10) + '" x2="' + bpxN(x + 8) + '" y2="' + bpxN(y - 10) + '"/>');
+    s.push('<line x1="' + bpxN(x - 5) + '" y1="' + bpxN(y - 6) + '" x2="' + bpxN(x + 5) + '" y2="' + bpxN(y - 6) + '"/>');
+    s.push('<line x1="' + bpxN(x - 2.5) + '" y1="' + bpxN(y - 2) + '" x2="' + bpxN(x + 2.5) + '" y2="' + bpxN(y - 2) + '"/>');
+    s.push('<text x="' + bpxN(x + 15) + '" y="' + bpxN(y + 2) + '">接地端子盤</text>');
+    s.push('</g>');
+  }
+
+  function bpxElectricalLegend(s, flowLength) {
+    var w = 210;
+    var h = 58;
+    var x = 790;
+    var tableH = 20 + 22 + Math.max(0, flowLength || 0) * 25;
+    var y = Math.max(160, 64 + tableH + 12);
+    y = Math.min(y, 454 - h - 10);
+    s.push('<g class="bpx-elec-legend">');
+    s.push('<rect x="' + bpxN(x) + '" y="' + bpxN(y) + '" width="' + bpxN(w) + '" height="' + bpxN(h) + '" rx="2"/>');
+    s.push('<text x="' + bpxN(x + 12) + '" y="' + bpxN(y + 18) + '">━━ 主幹ケーブルラック</text>');
+    s.push('<text x="' + bpxN(x + 12) + '" y="' + bpxN(y + 34) + '">┊ 分岐配線(電線管)</text>');
+    s.push('<text x="' + bpxN(x + 12) + '" y="' + bpxN(y + 50) + '">▦ 分電盤</text>');
+    s.push('</g>');
+  }
   function bpxDrawTitleBlock(s, x, y, w, h, t, meta) {
     var r1 = 42, r2 = 20, keyW = 54;
     var drawingNo = (t && t.id) ? String(t.id) : "N";
@@ -2084,6 +2321,7 @@
     else bpxDrawCellLayout(s, flow, g);
 
     bpxDrawSideEquipment(s, sideSet);
+    bpxDrawElectrical(s, g, flow, sideSet);
     bpxDrawColumns(s, g, xBays, yBays);
     bpxDrawNorthAndScale(s);
     bpxDrawEquipmentTable(s, 790, 64, 250, flow, method);
