@@ -4357,16 +4357,24 @@ if (mount) {
     }
     var w = renderer.domElement.clientWidth || mount.clientWidth || 1;
     var h = renderer.domElement.clientHeight || mount.clientHeight || 1;
-    for (var i = 0; i < labelItems.length; i++) {
-      var item = labelItems[i];
-      var p = item.position.clone();
-      p.project(camera);
-      if (p.z < -1 || p.z > 1 || p.x < -1.25 || p.x > 1.25 || p.y < -1.25 || p.y > 1.25) {
-        item.el.style.display = "none";
-      } else {
-        item.el.style.display = "block";
-        item.el.style.left = String((p.x * 0.5 + 0.5) * w) + "px";
-        item.el.style.top = String((-p.y * 0.5 + 0.5) * h) + "px";
+    var shown = [], pass, i;
+    // 2パス：工程ラベルを優先表示し、衝突する区画ラベルは間引く（重なりで潰れないように）
+    for (pass = 0; pass < 2; pass++) {
+      for (i = 0; i < labelItems.length; i++) {
+        var item = labelItems[i];
+        if ((pass === 0) !== (item.kind === "process")) continue;
+        var p = item.position.clone();
+        p.project(camera);
+        if (p.z < -1 || p.z > 1 || p.x < -1.2 || p.x > 1.2 || p.y < -1.2 || p.y > 1.2) { item.el.style.display = "none"; continue; }
+        var sx = (p.x * 0.5 + 0.5) * w, sy = (-p.y * 0.5 + 0.5) * h;
+        var lw = (item.el.textContent.length * 7.4) + 16, lh = 19;
+        var rx = sx - lw / 2, ry = sy - lh, overlap = false, k;
+        for (k = 0; k < shown.length; k++) {
+          var s = shown[k];
+          if (!(rx + lw < s.x - 5 || rx > s.x + s.w + 5 || ry + lh < s.y - 3 || ry > s.y + s.h + 3)) { overlap = true; break; }
+        }
+        if (overlap) { item.el.style.display = "none"; }
+        else { item.el.style.display = "block"; item.el.style.left = String(sx) + "px"; item.el.style.top = String(sy) + "px"; shown.push({ x: rx, y: ry, w: lw, h: lh }); }
       }
     }
   }
@@ -4384,7 +4392,7 @@ if (mount) {
 
     var maxSize = Math.max(size.x, size.z * 1.35, size.y * 2.3, 10);
     var fov = camera.fov * Math.PI / 180;
-    var distance = maxSize / (2 * Math.tan(fov / 2)) * 1.04;
+    var distance = maxSize / (2 * Math.tan(fov / 2)) * 0.82;
     var direction = new THREE.Vector3(0.78, 0.58, 0.9).normalize();
 
     defaultTarget.copy(center);
@@ -4415,7 +4423,7 @@ if (mount) {
     center.y = Math.max(1.0, size.y * 0.26);
     var maxSize = Math.max(size.x, size.z * 1.35, size.y * 2.3, 10);
     var fov = camera.fov * Math.PI / 180;
-    var distance = maxSize / (2 * Math.tan(fov / 2)) * 1.04;
+    var distance = maxSize / (2 * Math.tan(fov / 2)) * 0.82;
     var direction = new THREE.Vector3(0.78, 0.58, 0.9).normalize();
     defaultTarget.copy(center);
     defaultCameraPosition.copy(center).addScaledVector(direction, distance);
