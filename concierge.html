@@ -96,6 +96,23 @@
     align-items: start;
   }
   @media (max-width: 940px) { .layout { grid-template-columns: 1fr; } }
+  .layout.collapsed { grid-template-columns: 1fr; }
+  .layout.collapsed .controls { display: none; }
+  /* 要件バー（左カラムを畳んだ時の要約＋編集トグル） */
+  .reqbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .reqbar .rq { font-size: 0.78rem; color: var(--steel-deep); white-space: nowrap; }
+  .reqbar .rq b { color: var(--ink); font-weight: 600; }
+  .reqbar .rq-sep { width: 1px; height: 14px; background: var(--line-strong); }
+  .reqbar .rq-edit { margin-left: auto; border: 1px solid var(--line-strong); background: var(--paper); color: var(--steel-deep); border-radius: 100px; padding: 5px 13px; font-size: 0.76rem; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .reqbar .rq-edit:hover { border-color: var(--accent); color: var(--ink); }
+  .layout:not(.collapsed) .reqbar .rq-edit { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* フェーズ・ヒーロー帯（各フェーズ最初に見る結論＋主数値） */
+  .phasehero { display: flex; align-items: baseline; gap: 12px; padding: 2px 2px 0; min-height: 1px; }
+  .phasehero .hnum { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.05; color: var(--ink); letter-spacing: -0.01em; }
+  .phasehero .hnum .u { font-size: 0.55em; font-weight: 700; color: var(--steel); margin-left: 2px; }
+  .phasehero .hsay { font-size: 0.86rem; color: var(--steel-deep); line-height: 1.4; align-self: center; }
+  .phasehero .hsay b { color: var(--accent-deep); }
+  .phasehero:empty { display: none; }
 
   /* ---- control column ---- */
   .controls { display: flex; flex-direction: column; gap: 20px; }
@@ -660,8 +677,10 @@
 
     <!-- STAGE -->
     <section class="stage" aria-label="AIの即時提案">
+      <div class="reqbar" id="reqbar"></div>
       <nav class="stepper" id="stepper" aria-label="設計フェーズ"></nav>
-      <p class="stephint" id="stepHint">左で要件を入力し、フェーズを進めて設計を確定していきます。図面を確定すると3Dシミュレーションが解放されます。</p>
+      <div class="phasehero" id="phaseHero"></div>
+      <p class="stephint" id="stepHint">フェーズを進めて設計を確定していきます。図面を確定すると3Dシミュレーションが解放されます。</p>
 
       <div class="floorcard">
         <div class="fhead">
@@ -889,6 +908,13 @@
     if (state.tol === "ultra-precision") a += 1;
     return Math.round(a * 10) / 10;
   }
+
+  // ==== フェーズ・ヒーロー（各フェーズ最初に見る結論＋主数値） ====
+  var PHASE_HERO = {}, curPhase = "concept";
+  function heroHtml(big, unit, say) {
+    return '<span class="hnum">' + big + (unit ? '<span class="u">' + unit + '</span>' : '') + '</span><span class="hsay">' + say + '</span>';
+  }
+  function renderHeroBar() { var el = document.getElementById("phaseHero"); if (el) el.innerHTML = PHASE_HERO[curPhase] || ""; }
   var BUDGET_LABEL = { s: "〜30億", m: "30〜100億", l: "100〜500億", xl: "500億〜" };
 
   // SCM立地評価（f: サプライヤー近接/物流港湾/人材/コスト/災害地政学耐性 各0-10）
@@ -1198,6 +1224,7 @@
       return { nm: s.nm, x: s.x, y: s.y, f: s.f, total: tot };
     }).sort(function (a, b) { return b.total - a.total; });
     var best = scored[0];
+    PHASE_HERO.supply = heroHtml(best.nm, '', 'SCM最適立地（5指標で採点）／ 港湾・サプライヤー近接で選定');
     var W = 460, H = 300;
     function mx(x) { return 40 + x / 100 * 380; }
     function my(y) { return 24 + y / 100 * 250; }
@@ -1714,6 +1741,7 @@
     var convWk = Math.round(chartWk * 1.55);
     var mo = function (wk) { return Math.round(wk / 4.33 * 10) / 10; };
     var chartMo = mo(chartWk), convMo = mo(convWk), diff = Math.round((convMo - chartMo) * 10) / 10;
+    PHASE_HERO.build = heroHtml(chartMo, 'ヶ月', '量産開始まで ／ 従来比 <b>' + diff + 'ヶ月短縮</b>');
 
     // WBSフェーズ（相対 開始/終了。重なり＝並行施工らしく）
     var ph = [
@@ -1831,6 +1859,7 @@
     }
     var rec = variant(dsPriority()), low = variant("cost"), fast = variant("time");
     decRec = { v: rec, price: price, margin: margin, target: target };
+    PHASE_HERO.impact = heroHtml(rec.pay ? (Math.round(rec.pay * 10) / 10).toFixed(1) : '10+', '年', '投資回収（推奨案）／ 適合度 ' + (Math.round(rec.score * 10) / 10).toFixed(1) + ' ／ 3案を横並び比較');
 
     var nf = function (x) { return Math.round(x).toLocaleString("ja-JP"); };
     var f1 = function (x) { return (Math.round(x * 10) / 10).toFixed(1); };
@@ -2057,6 +2086,13 @@
     renderDesignSearch(t);
     renderBuildPlan(t);
     renderDecision(t);
+
+    // フェーズ・ヒーロー（結論＋主数値）
+    PHASE_HERO.concept = heroHtml(r.pct, '%', '推奨レイアウト：<b>' + t.name + '</b> ／ 工程・動線を最適化');
+    PHASE_HERO.blueprint = heroHtml(flowScore(t, view.order).pct, '%', '動線効率（レイアウト成立）／ 分岐・合流・リワークを配置');
+    PHASE_HERO.simulation = heroHtml('3D', '', '工程・物流・設備を検証 ／ <b>Optimize</b>で動線・リードタイム・ボトルネックが改善');
+    renderReqBar();
+    renderHeroBar();
   }
 
   function updateReqSum() {
@@ -2068,6 +2104,27 @@
     var el = document.getElementById("reqSum");
     if (el) el.innerHTML = '<b>' + prodLabel + '</b>／' + vol + '／' + tol + '公差　｜　立地：<b>' + LOC_LABEL[state.location]
       + '</b>／' + SHIFT_LABEL[state.shift] + '／予算 ' + BUDGET_LABEL[state.budget] + '円<br>認証：' + certs;
+  }
+
+  // 要件バー（左カラムを畳んだ時の常時要約＋編集トグル）
+  function renderReqBar() {
+    var el = document.getElementById("reqbar"); if (!el) return;
+    var prodLabel = "";
+    for (var i = 0; i < PRODUCTS.length; i++) if (PRODUCTS[i].key === state.product) prodLabel = PRODUCTS[i].label;
+    var vol = { low: "少量", mid: "中量", high: "大量" }[state.volume];
+    var tol = { "general": "一般", "precision": "精密", "ultra-precision": "超精密" }[state.tol];
+    var certs = state.certs.length ? state.certs.map(function (c) { return CERT_LABEL[c]; }).join("・") : "なし";
+    var parts = [["製品", prodLabel], ["生産量", vol], ["公差", tol], ["立地", LOC_LABEL[state.location]], ["稼働", SHIFT_LABEL[state.shift]], ["予算", BUDGET_LABEL[state.budget] + "円"], ["認証", certs]];
+    var collapsed = document.querySelector(".layout").classList.contains("collapsed");
+    var h = "";
+    for (var j = 0; j < parts.length; j++) { if (j) h += '<span class="rq-sep"></span>'; h += '<span class="rq">' + parts[j][0] + ' <b>' + parts[j][1] + '</b></span>'; }
+    h += '<button class="rq-edit" type="button" id="rqEditBtn">' + (collapsed ? '要件を編集' : '編集を閉じる') + '</button>';
+    el.innerHTML = h;
+    document.getElementById("rqEditBtn").addEventListener("click", function () {
+      var c = document.querySelector(".layout").classList.toggle("collapsed");
+      this.textContent = c ? '要件を編集' : '編集を閉じる';
+      if (!c) { var cc = document.querySelector(".controls"); if (cc) cc.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+    });
   }
 
   // ---- build product segments ----
@@ -2277,7 +2334,8 @@
     }
     function setPhase(id) {
       if (id === "simulation" && !seen.blueprint) { setPhase("blueprint"); return; }
-      current = id; seen[id] = true;
+      current = id; curPhase = id; seen[id] = true;
+      renderHeroBar();
       var cards = stage.querySelectorAll(".phasecard");
       for (var i = 0; i < cards.length; i++) cards[i].hidden = (cards[i].getAttribute("data-phase") !== id);
       buildStepper();
@@ -2302,6 +2360,7 @@
   })();
 
   wireDecSens();
+  document.querySelector(".layout").classList.add("collapsed"); // 既定は左カラムを畳んで出力に集中
   update();
 })();
 </script>
