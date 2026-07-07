@@ -3547,9 +3547,9 @@ if (mount) {
   var transporters = [];
   var animatedRobots = [];
   var bottleneckMeshes = [];
+  var sharedBottleneckMaterial = null;
   var agvGroup = null;
   var agvPath = [];
-  var agvProgress = 0;
   var currentTemplate = null;
   var currentOrder = null;
   var currentProcessCount = -1;
@@ -3778,7 +3778,6 @@ if (mount) {
     buttons.simulate = createPanelButton("Simulate", function () {
       animationEnabled = !reducedMotion;
       simulationTime = 0;
-      agvProgress = 0;
       resetMovingProducts();
     });
     buttons.optimize = createPanelButton("Optimize", function () {
@@ -3786,7 +3785,6 @@ if (mount) {
       renderPlant(currentTemplate, currentOrder);
       animationEnabled = !reducedMotion;
       simulationTime = 0;
-      agvProgress = 0;
       resetMovingProducts();
     });
     buttons.reset = createPanelButton("Reset View", function () {
@@ -3983,6 +3981,21 @@ if (mount) {
     return -1;
   }
 
+  function getTemplateProductType(template) {
+    return String((template && (template.productType || template.productKey || template.product)) || "").toLowerCase();
+  }
+
+  function resolveTransportMode(template) {
+    var type = getTemplateProductType(template);
+    if (type === "ev-battery-cell" || type === "electronic-assembly" || type === "food-aseptic") {
+      return "continuous";
+    }
+    if (type === "precision-machined" || type === "sheet-metal" || type === "injection-molding") {
+      return "discrete";
+    }
+    return template && Array.isArray(template.cleanZones) && template.cleanZones.length ? "continuous" : "discrete";
+  }
+
   function createLayout(flow, cleanZones, template, prodMethod) {
     var n = Math.max(3, flow.length);
     var productType = getTemplateProductType(template);
@@ -4001,7 +4014,8 @@ if (mount) {
     var packX = rightX - 5.8;
     var lineStart = rawBoundary + 1.55;
     var lineEnd = qcX - 2.05;
-    var lineZ = prodMethod === "line" ? -0.1 : (prodMethod === "functional" ? -1.35 : -1.65);
+    var methodZShift = optimizedLayout ? -0.1 : (variant === 1 ? 0.38 : (variant === 2 ? -0.26 : 0));
+    var lineZ = prodMethod === "line" ? -0.1 + methodZShift : (prodMethod === "functional" ? -1.35 + methodZShift * 0.5 : -1.65 + methodZShift * 0.45);
     var qcRoomW = 4.35;
     var qcRoomD = 3.45;
 
@@ -4050,23 +4064,9 @@ if (mount) {
       turnPoints: [],
       sensorPoints: [],
       columnAvoidRects: [],
+      processPositions: [],
       inefficientTurns: optimizedLayout ? 3 : (prodMethod === "line" ? (variant === 1 ? 6 : 4) : (prodMethod === "cell" ? (variant === 1 ? 9 : 7) : (variant === 1 ? 14 : 11)))
     };
-  }
-
-  function getTemplateProductType(template) {
-    return String((template && (template.productType || template.productKey || template.product)) || "").toLowerCase();
-  }
-
-  function resolveTransportMode(template) {
-    var type = getTemplateProductType(template);
-    if (type === "ev-battery-cell" || type === "electronic-assembly" || type === "food-aseptic") {
-      return "continuous";
-    }
-    if (type === "precision-machined" || type === "sheet-metal" || type === "injection-molding") {
-      return "discrete";
-    }
-    return template && Array.isArray(template.cleanZones) && template.cleanZones.length ? "continuous" : "discrete";
   }
 
   function buildFactory(layout, flow, template) {
@@ -4083,6 +4083,7 @@ if (mount) {
     createConveyors(layout, mats);
     createStations(layout, flow, template, mats);
     createSupportAreas(layout, flow, mats);
+    createElectricalInfrastructure(layout, flow, template, mats);
     createTransporters(layout, mats);
     createProducts(layout, mats);
   }
@@ -4141,8 +4142,18 @@ if (mount) {
       beam: new THREE.MeshStandardMaterial({ color: 0x48e0ff, roughness: 0.2, metalness: 0.0, transparent: true, opacity: 0.32, depthWrite: false }),
       fencePost: new THREE.MeshStandardMaterial({ color: 0xd2aa2c, roughness: 0.46, metalness: 0.38 }),
       fenceMesh: new THREE.MeshStandardMaterial({ color: 0xd8b73a, roughness: 0.5, metalness: 0.2, transparent: true, opacity: 0.2, depthWrite: false }),
-      officeWall: new THREE.MeshStandardMaterial({ color: dark ? 0x38424d : 0xd5d9dc, roughness: 0.78, metalness: 0.02 })
+      officeWall: new THREE.MeshStandardMaterial({ color: dark ? 0x38424d : 0xd5d9dc, roughness: 0.78, metalness: 0.02 }),
+      cableRack: new THREE.MeshStandardMaterial({ color: dark ? 0x4f5961 : 0x59646d, roughness: 0.44, metalness: 0.72 }),
+      cableRung: new THREE.MeshStandardMaterial({ color: dark ? 0x39424a : 0x707a83, roughness: 0.5, metalness: 0.66 }),
+      conduit: new THREE.MeshStandardMaterial({ color: dark ? 0x667078 : 0x8e979f, roughness: 0.36, metalness: 0.78 }),
+      cabinetBody: new THREE.MeshStandardMaterial({ color: dark ? 0x29333d : 0x697783, roughness: 0.48, metalness: 0.34 }),
+      cabinetDoor: new THREE.MeshStandardMaterial({ color: dark ? 0x35414c : 0x81909c, roughness: 0.42, metalness: 0.36 }),
+      cabinetHandle: new THREE.MeshStandardMaterial({ color: 0xc4cbd1, roughness: 0.28, metalness: 0.86 }),
+      earthBox: new THREE.MeshStandardMaterial({ color: 0x5f8d48, roughness: 0.48, metalness: 0.14 }),
+      earthCopper: new THREE.MeshStandardMaterial({ color: 0xc47a32, roughness: 0.34, metalness: 0.86 }),
+      bottleneck: new THREE.MeshStandardMaterial({ color: 0xb73b35, roughness: 0.48, metalness: 0.18, emissive: 0x5d0808, emissiveIntensity: 0.25 })
     };
+    sharedBottleneckMaterial = mats.bottleneck;
     activeMaterials = [];
     for (var key in mats) {
       if (Object.prototype.hasOwnProperty.call(mats, key)) {
@@ -4166,63 +4177,32 @@ if (mount) {
     var n = flow.length;
     var positions = new Array(n);
     var work = [];
-    var inspections = [];
     var packers = [];
-    var before = [];
-    var after = [];
-    var i;
+    var inspections = [];
 
-    for (i = 0; i < n; i++) {
+    for (var i = 0; i < n; i++) {
       if (isReceivingName(flow[i])) {
         positions[i] = withRotation(v3(layout.leftX + 2.35, 0, layout.mainAisleZ), 0);
       } else if (isShippingName(flow[i])) {
         positions[i] = withRotation(v3(layout.rightX - 2.35, 0, layout.mainAisleZ), Math.PI);
+      } else if (isPackagingName(flow[i])) {
+        packers.push(i);
+      } else if (isInspectionName(flow[i]) || isTestName(flow[i])) {
+        inspections.push(i);
       } else {
         work.push(i);
-        if (isInspectionName(flow[i]) || isTestName(flow[i])) {
-          inspections.push(i);
-        } else if (isPackagingName(flow[i])) {
-          packers.push(i);
-        }
       }
     }
 
-    var firstInspection = inspections.length ? inspections[0] : -1;
+    var start = layout.lineStart + (layout.optimized ? 0.25 : 0);
+    var end = Math.min(layout.packX - 1.4, layout.qcX - 2.7);
     for (i = 0; i < work.length; i++) {
-      var idx = work[i];
-      if (isInspectionName(flow[idx]) || isTestName(flow[idx]) || isPackagingName(flow[idx])) {
-        continue;
-      }
-      if (firstInspection >= 0 && idx > firstInspection) {
-        after.push(idx);
-      } else {
-        before.push(idx);
-      }
+      var t = work.length === 1 ? 0.5 : i / Math.max(1, work.length - 1);
+      positions[work[i]] = withRotation(v3(lerp(start, end, t), 0, layout.lineZ), 0);
     }
 
-    if (inspections.length) {
-      for (i = 0; i < before.length; i++) {
-        var tb = before.length === 1 ? 0.5 : i / Math.max(1, before.length - 1);
-        positions[before[i]] = withRotation(v3(lerp(layout.lineStart, layout.qcX - 3.0, tb), 0, layout.lineZ), 0);
-      }
-      for (i = 0; i < inspections.length; i++) {
-        positions[inspections[i]] = withRotation(v3(layout.qcX + (i - (inspections.length - 1) / 2) * 0.74, 0, layout.qcZ), Math.PI);
-      }
-      for (i = 0; i < after.length; i++) {
-        var ta = after.length === 1 ? 0.5 : i / Math.max(1, after.length - 1);
-        positions[after[i]] = withRotation(v3(lerp(layout.qcX + 3.0, layout.packX - 1.45, ta), 0, layout.lineZ), 0);
-      }
-    } else {
-      var nonPack = [];
-      for (i = 0; i < work.length; i++) {
-        if (!isPackagingName(flow[work[i]])) {
-          nonPack.push(work[i]);
-        }
-      }
-      for (i = 0; i < nonPack.length; i++) {
-        var tn = nonPack.length === 1 ? 0.5 : i / Math.max(1, nonPack.length - 1);
-        positions[nonPack[i]] = withRotation(v3(lerp(layout.lineStart, layout.packX - 1.3, tn), 0, layout.lineZ), 0);
-      }
+    for (i = 0; i < inspections.length; i++) {
+      positions[inspections[i]] = withRotation(v3(layout.qcX + (i - (inspections.length - 1) / 2) * 0.74, 0, layout.qcZ), Math.PI);
     }
 
     for (i = 0; i < packers.length; i++) {
@@ -4244,9 +4224,8 @@ if (mount) {
     var cellMembers = [];
     var inspections = [];
     var packers = [];
-    var i;
 
-    for (i = 0; i < n; i++) {
+    for (var i = 0; i < n; i++) {
       if (isReceivingName(flow[i])) {
         positions[i] = withRotation(v3(layout.leftX + 2.35, 0, layout.mainAisleZ), 0);
       } else if (isShippingName(flow[i])) {
@@ -4276,8 +4255,8 @@ if (mount) {
     }
     var groupSize = Math.max(1, Math.ceil(cellMembers.length / cellCount));
     var cellW = cellCount >= 3 ? 4.7 : 5.8;
-    var z0 = layout.lineZ - 0.15;
-    var z1 = layout.lineZ + 4.25;
+    var z0 = layout.lineZ + (layout.optimized ? 0.08 : -0.15);
+    var z1 = layout.lineZ + (layout.optimized ? 4.0 : 4.25);
 
     layout.cellInfos = [];
     layout.cellColumns = [];
@@ -4360,9 +4339,7 @@ if (mount) {
       { key: "pack", label: "Packing / Storage Group", cx: layout.packX, cz: layout.packZ, w: 4.9, d: 3.8, indices: [] }
     ];
     var blockMap = {};
-    var i;
-
-    for (i = 0; i < blocks.length; i++) {
+    for (var i = 0; i < blocks.length; i++) {
       blockMap[blocks[i].key] = blocks[i];
     }
 
@@ -4381,12 +4358,7 @@ if (mount) {
     }
 
     layout.functionalBlocks = blocks;
-    layout.crossAisles = [
-      blocks[0].cx,
-      blocks[1].cx,
-      layout.qcX,
-      layout.packX
-    ];
+    layout.crossAisles = [blocks[0].cx, blocks[1].cx, layout.qcX, layout.packX];
 
     for (i = 0; i < n; i++) {
       if (!positions[i]) {
@@ -4404,7 +4376,7 @@ if (mount) {
     if (isInspectionName(name) || isTestName(name)) {
       return "inspect";
     }
-    if (isTankName(name) && hasAny(name, ["wash", "clean", "洗浄", "洗い"])) {
+    if (isTankName(name) && hasAny(name, ["wash", "clean", "mix"])) {
       return "inspect";
     }
     if (isRobotName(name) || isOvenName(name) || isTankName(name)) {
@@ -4463,9 +4435,7 @@ if (mount) {
   function createLineMaterialFlowPaths(layout, flow) {
     var p = layout.processPositions;
     var lineIndices = [];
-    var i;
-
-    for (i = 0; i < flow.length; i++) {
+    for (var i = 0; i < flow.length; i++) {
       if (!isReceivingName(flow[i]) && !isShippingName(flow[i])) {
         lineIndices.push(i);
       }
@@ -4480,36 +4450,16 @@ if (mount) {
     main.push(exit);
     main = compactPath(main);
 
-    var conveyorPaths = [
-      { points: main, style: optimizedLayout ? "belt" : (layout.variant === 1 ? "roller" : "belt"), color: optimizedLayout ? 0x53b980 : 0x86a7c4 }
-    ];
-    var productPaths = [main];
-    var turnPoints = [];
-    var sensorPoints = [entry, main[Math.max(1, Math.floor(main.length * 0.5))], exit];
-
-    var inspectIndex = layout.inspectionIndex >= 0 ? layout.inspectionIndex : -1;
-    if (inspectIndex >= 0 && p[inspectIndex]) {
-      var inspect = p[inspectIndex];
-      var inspectPathIndex = indexPointInPath(main, inspect);
-      var rejoinIndex = Math.max(1, inspectPathIndex - 2);
-      var rejoin = main[rejoinIndex];
-      var qcEast = v3(layout.qcX + layout.qcRoomW / 2 + 0.35, 0, layout.qcZ);
-      var reworkZ = layout.lineZ - 2.25;
-      var rework = compactPath([inspect, qcEast, v3(qcEast.x, 0, reworkZ), v3(rejoin.x, 0, reworkZ), rejoin]);
-      if (pathLength(rework) > 1.0) {
-        conveyorPaths.push({ points: rework, style: "roller", color: 0xde7562 });
-        productPaths.push(concatPaths(main.slice(0, inspectPathIndex + 1), rework, main.slice(rejoinIndex + 1)));
-        turnPoints.push(inspect);
-        turnPoints.push(rejoin);
-      }
-    }
+    layout.conveyorPaths = [{ points: main, style: optimizedLayout ? "belt" : (layout.variant === 1 ? "roller" : "belt"), color: optimizedLayout ? 0x53b980 : 0x86a7c4 }];
+    layout.productPaths = [main];
+    layout.turnPoints = [];
+    layout.sensorPoints = [entry, main[Math.max(1, Math.floor(main.length * 0.5))], exit];
 
     var rawFork = compactPath([
       v3(layout.leftX + 2.2, 0, layout.mainAisleZ),
       v3(layout.leftX + 7.4, 0, layout.mainAisleZ),
       v3(layout.leftX + 7.4, 0, 6.35),
       v3(layout.rawBoundary - 0.72, 0, 6.35),
-      v3(layout.rawBoundary - 0.72, 0, layout.mainAisleZ),
       v3(entry.x, 0, layout.mainAisleZ),
       entry
     ]);
@@ -4523,10 +4473,6 @@ if (mount) {
       v3(layout.rightX - 2.25, 0, layout.mainAisleZ)
     ]);
 
-    layout.conveyorPaths = conveyorPaths;
-    layout.productPaths = productPaths;
-    layout.turnPoints = turnPoints;
-    layout.sensorPoints = sensorPoints;
     layout.transportPaths = [
       { type: "forklift", path: rawFork, speed: 0.82, offset: 0 },
       { type: "forklift", path: fgFork, speed: 0.74, offset: pathLength(fgFork) * 0.38 }
@@ -4535,18 +4481,8 @@ if (mount) {
   }
 
   function createCellMaterialFlowPaths(layout, flow) {
-    var p = layout.processPositions;
     var conveyorPaths = [];
-    var processIndices = [];
-    var i;
-
     addLocalConveyors(layout, flow, conveyorPaths, false);
-
-    for (i = 0; i < flow.length; i++) {
-      if (!isReceivingName(flow[i]) && !isShippingName(flow[i])) {
-        processIndices.push(i);
-      }
-    }
 
     var fullRoute = compactPath([
       v3(layout.leftX + 2.2, 0, layout.mainAisleZ),
@@ -4557,7 +4493,7 @@ if (mount) {
     ]);
 
     var milkRun = compactPath([v3(layout.lineStart - 0.5, 0, layout.mainAisleZ)]);
-    for (i = 0; i < layout.cellInfos.length; i++) {
+    for (var i = 0; i < layout.cellInfos.length; i++) {
       var info = layout.cellInfos[i];
       var cellLoop = compactPath([
         v3(info.cx, 0, layout.mainAisleZ),
@@ -4571,12 +4507,6 @@ if (mount) {
       milkRun = concatPaths(milkRun, cellLoop);
     }
 
-    for (i = 0; i < processIndices.length; i++) {
-      if (isInspectionName(flow[processIndices[i]]) || isTestName(flow[processIndices[i]]) || isPackagingName(flow[processIndices[i]])) {
-        fullRoute = concatPaths(fullRoute, stationApproachPath(layout, p[processIndices[i]]));
-      }
-    }
-
     fullRoute = concatPaths(fullRoute, [
       v3(layout.packX + 1.7, 0, layout.mainAisleZ),
       v3(layout.packX + 1.7, 0, 7.2),
@@ -4584,11 +4514,7 @@ if (mount) {
       v3(layout.rightX - 2.25, 0, layout.mainAisleZ)
     ]);
 
-    var bottleneckRoute = layout.bottleneckIndex >= 0 && p[layout.bottleneckIndex] ? stationApproachPath(layout, p[layout.bottleneckIndex]) : milkRun;
-    if (!milkRun.length || pathLength(milkRun) < 1) {
-      milkRun = fullRoute;
-    }
-
+    var bottleneckRoute = layout.bottleneckIndex >= 0 && layout.processPositions[layout.bottleneckIndex] ? stationApproachPath(layout, layout.processPositions[layout.bottleneckIndex]) : milkRun;
     layout.conveyorPaths = conveyorPaths;
     layout.productPaths = [];
     layout.turnPoints = [];
@@ -4602,18 +4528,8 @@ if (mount) {
   }
 
   function createFunctionalMaterialFlowPaths(layout, flow) {
-    var p = layout.processPositions;
     var conveyorPaths = [];
-    var processIndices = [];
-    var i;
-
     addLocalConveyors(layout, flow, conveyorPaths, true);
-
-    for (i = 0; i < flow.length; i++) {
-      if (!isReceivingName(flow[i]) && !isShippingName(flow[i])) {
-        processIndices.push(i);
-      }
-    }
 
     var fullRoute = compactPath([
       v3(layout.leftX + 2.2, 0, layout.mainAisleZ),
@@ -4623,8 +4539,10 @@ if (mount) {
       v3(layout.rawBoundary - 0.8, 0, layout.mainAisleZ)
     ]);
 
-    for (i = 0; i < processIndices.length; i++) {
-      fullRoute = concatPaths(fullRoute, functionalApproachPath(layout, p[processIndices[i]]));
+    for (var i = 0; i < layout.processPositions.length; i++) {
+      if (!isReceivingName(flow[i]) && !isShippingName(flow[i])) {
+        fullRoute = concatPaths(fullRoute, functionalApproachPath(layout, layout.processPositions[i]));
+      }
     }
 
     fullRoute = concatPaths(fullRoute, [
@@ -4644,8 +4562,7 @@ if (mount) {
       ]);
     }
 
-    var bottleneckRoute = layout.bottleneckIndex >= 0 && p[layout.bottleneckIndex] ? functionalApproachPath(layout, p[layout.bottleneckIndex]) : blockShuttle;
-
+    var bottleneckRoute = layout.bottleneckIndex >= 0 && layout.processPositions[layout.bottleneckIndex] ? functionalApproachPath(layout, layout.processPositions[layout.bottleneckIndex]) : blockShuttle;
     layout.conveyorPaths = conveyorPaths;
     layout.productPaths = [];
     layout.turnPoints = [];
@@ -4663,17 +4580,9 @@ if (mount) {
     for (var i = 0; i < flow.length; i++) {
       var kind = getStationKind(flow[i], layout.productType, i);
       if (kind === "receiving" || kind === "shipping") {
-        conveyorPaths.push({
-          points: [v3(p[i].x - 0.72, 0, p[i].z), v3(p[i].x + 0.72, 0, p[i].z)],
-          style: "roller",
-          color: 0x82a7c2
-        });
+        conveyorPaths.push({ points: [v3(p[i].x - 0.72, 0, p[i].z), v3(p[i].x + 0.72, 0, p[i].z)], style: "roller", color: 0x82a7c2 });
       } else if (kind === "packaging" || kind === "tank" || kind === "oven") {
-        conveyorPaths.push({
-          points: [v3(p[i].x - 0.82, 0, p[i].z), v3(p[i].x + 0.82, 0, p[i].z)],
-          style: kind === "packaging" ? "belt" : "roller",
-          color: kind === "packaging" ? 0xb18ac6 : 0x71b98e
-        });
+        conveyorPaths.push({ points: [v3(p[i].x - 0.82, 0, p[i].z), v3(p[i].x + 0.82, 0, p[i].z)], style: kind === "packaging" ? "belt" : "roller", color: kind === "packaging" ? 0xb18ac6 : 0x71b98e });
       }
     }
 
@@ -4689,11 +4598,7 @@ if (mount) {
         for (var j = 0; j < ids.length; j++) {
           pts.push(p[ids[j]]);
         }
-        conveyorPaths.push({
-          points: compactPath(pts),
-          style: "roller",
-          color: blocks[i].key === "inspect" ? 0xdfc65e : 0x9aa9c4
-        });
+        conveyorPaths.push({ points: compactPath(pts), style: "roller", color: blocks[i].key === "inspect" ? 0xdfc65e : 0x9aa9c4 });
       }
     }
   }
@@ -4729,7 +4634,6 @@ if (mount) {
     var base = addBox(equipmentGroup, layout.hallW, 0.08, layout.hallD, mats.floorBase, 0, 0.04, 0);
     base.castShadow = false;
     base.receiveShadow = true;
-
     createMethodFloorZones(layout, mats);
     createSawCutGrid(layout, mats);
     createAisleMarkings(layout, mats);
@@ -4927,12 +4831,6 @@ if (mount) {
 
     addBox(equipmentGroup, 0.16, 0.72, 0.14, mats.dockBumper, x + (isLeft ? 0.25 : -0.25), 0.36, doorZ - doorWidth * 0.37);
     addBox(equipmentGroup, 0.16, 0.72, 0.14, mats.dockBumper, x + (isLeft ? 0.25 : -0.25), 0.36, doorZ + doorWidth * 0.37);
-
-    for (var z = zMin + 1.3; z <= zMax - 1.3; z += 2.4) {
-      if (Math.abs(z - doorZ) > doorWidth * 0.62) {
-        addBox(equipmentGroup, 0.12, 2.05, 0.12, mats.wallDark, x, 1.025, z);
-      }
-    }
   }
 
   function createColumnsAndRoof(layout, mats) {
@@ -4947,9 +4845,8 @@ if (mount) {
 
     for (var i = 0; i < xs.length; i++) {
       for (var j = 0; j < zs.length; j++) {
-        var candidate = getColumnCandidate(xs[i], zs[j], layout);
-        if (candidate) {
-          createColumn(candidate.x, candidate.z, layout, mats);
+        if (!isColumnBlocked(xs[i], zs[j], layout)) {
+          createColumn(xs[i], zs[j], layout, mats);
         }
       }
     }
@@ -4965,30 +4862,6 @@ if (mount) {
     for (i = 0; i < xs.length; i++) {
       addBox(equipmentGroup, 0.1, 0.1, layout.hallD - 1.1, mats.roofBeam, xs[i], layout.roofY + 0.04, 0).castShadow = false;
     }
-  }
-
-  function getColumnCandidate(x, z, layout) {
-    if (!isColumnBlocked(x, z, layout)) {
-      return { x: x, z: z };
-    }
-    var offsets = [
-      [0.72, 0],
-      [-0.72, 0],
-      [0, 0.72],
-      [0, -0.72],
-      [0.72, 0.72],
-      [-0.72, 0.72],
-      [0.72, -0.72],
-      [-0.72, -0.72]
-    ];
-    for (var i = 0; i < offsets.length; i++) {
-      var nx = x + offsets[i][0];
-      var nz = z + offsets[i][1];
-      if (nx > layout.leftX + 1.2 && nx < layout.rightX - 1.2 && nz > -layout.halfD + 1.2 && nz < layout.halfD - 1.2 && !isColumnBlocked(nx, nz, layout)) {
-        return { x: nx, z: nz };
-      }
-    }
-    return null;
   }
 
   function isColumnBlocked(x, z, layout) {
@@ -5083,19 +4956,16 @@ if (mount) {
     var d = layout.qcRoomD;
     var h = 2.15;
     var doorHalf = 0.68;
-    var portHalf = 0.62;
 
     addBox(group, w, 0.045, d, mats.officeWall, 0, 0.024, 0).castShadow = false;
-
-    addSegmentedWallX(group, w, 0.38, 0.08, -d / 2, mats.officeWall, 0.19, [{ from: -doorHalf, to: doorHalf }]);
-    addSegmentedWallX(group, w, 0.38, 0.08, d / 2, mats.officeWall, 0.19, []);
-    addSegmentedWallZ(group, d, 0.38, 0.08, -w / 2, mats.officeWall, 0.19, [{ from: -portHalf, to: portHalf }]);
-    addSegmentedWallZ(group, d, 0.38, 0.08, w / 2, mats.officeWall, 0.19, [{ from: -portHalf, to: portHalf }]);
-
-    addSegmentedWallX(group, w, 1.28, 0.035, -d / 2, mats.cleanGlass, 1.12, [{ from: -doorHalf, to: doorHalf }]);
-    addSegmentedWallX(group, w, 1.28, 0.035, d / 2, mats.cleanGlass, 1.12, []);
-    addSegmentedWallZ(group, d, 1.28, 0.035, -w / 2, mats.cleanGlass, 1.12, [{ from: -portHalf, to: portHalf }]);
-    addSegmentedWallZ(group, d, 1.28, 0.035, w / 2, mats.cleanGlass, 1.12, [{ from: -portHalf, to: portHalf }]);
+    addBox(group, w, 0.38, 0.08, mats.officeWall, 0, 0.19, d / 2);
+    addBox(group, w, 0.38, 0.08, mats.officeWall, 0, 0.19, -d / 2);
+    addBox(group, 0.08, 0.38, d, mats.officeWall, -w / 2, 0.19, 0);
+    addBox(group, 0.08, 0.38, d, mats.officeWall, w / 2, 0.19, 0);
+    addBox(group, w, 1.28, 0.035, mats.cleanGlass, 0, 1.12, d / 2);
+    addBox(group, w, 1.28, 0.035, mats.cleanGlass, 0, 1.12, -d / 2);
+    addBox(group, 0.035, 1.28, d, mats.cleanGlass, -w / 2, 1.12, 0);
+    addBox(group, 0.035, 1.28, d, mats.cleanGlass, w / 2, 1.12, 0);
 
     for (var i = 0; i < 4; i++) {
       addBox(group, 0.065, h, 0.065, mats.cleanFrame, i < 2 ? -w / 2 : w / 2, h / 2, i % 2 ? -d / 2 : d / 2);
@@ -5104,68 +4974,14 @@ if (mount) {
     addBox(group, w + 0.08, 0.08, 0.08, mats.cleanFrame, 0, h, d / 2);
     addBox(group, 0.08, 0.08, d + 0.08, mats.cleanFrame, -w / 2, h, 0);
     addBox(group, 0.08, 0.08, d + 0.08, mats.cleanFrame, w / 2, h, 0);
-
-    addBox(group, 0.08, 1.62, 0.08, mats.cleanFrame, -doorHalf, 0.92, -d / 2 - 0.02);
-    addBox(group, 0.08, 1.62, 0.08, mats.cleanFrame, doorHalf, 0.92, -d / 2 - 0.02);
     addBox(group, doorHalf * 2 + 0.12, 0.08, 0.08, mats.safetyYellow, 0, 1.72, -d / 2 - 0.025);
     addBox(group, doorHalf * 2, 0.025, 0.16, mats.safetyYellow, 0, 0.18, -d / 2 - 0.08);
-
-    addBox(group, 0.08, 1.12, 0.08, mats.cleanFrame, -w / 2 - 0.02, 0.74, -portHalf);
-    addBox(group, 0.08, 1.12, 0.08, mats.cleanFrame, -w / 2 - 0.02, 0.74, portHalf);
-    addBox(group, 0.08, 1.12, 0.08, mats.cleanFrame, w / 2 + 0.02, 0.74, -portHalf);
-    addBox(group, 0.08, 1.12, 0.08, mats.cleanFrame, w / 2 + 0.02, 0.74, portHalf);
-    addBox(group, 0.09, 0.08, portHalf * 2 + 0.16, mats.safetyYellow, -w / 2 - 0.03, 1.32, 0);
-    addBox(group, 0.09, 0.08, portHalf * 2 + 0.16, mats.safetyYellow, w / 2 + 0.03, 1.32, 0);
 
     addBox(group, 1.15, 0.12, 0.6, mats.machineDark, 0.72, 0.18, d / 2 - 0.58);
     addBox(group, 0.72, 0.5, 0.22, mats.windowGlass, 0.72, 0.52, d / 2 - 0.82);
 
     equipmentGroup.add(group);
     addHtmlLabel("QC Room", v3(layout.qcX, 2.55, layout.qcZ + d / 2), "zone");
-  }
-
-  function addSegmentedWallX(parent, w, h, t, z, mat, y, openings) {
-    var cursor = -w / 2;
-    var gaps = normalizeOpenings(openings, -w / 2, w / 2);
-    for (var i = 0; i <= gaps.length; i++) {
-      var end = i < gaps.length ? gaps[i].from : w / 2;
-      if (end - cursor > 0.03) {
-        addBox(parent, end - cursor, h, t, mat, (cursor + end) / 2, y, z);
-      }
-      if (i < gaps.length) {
-        cursor = gaps[i].to;
-      }
-    }
-  }
-
-  function addSegmentedWallZ(parent, d, h, t, x, mat, y, openings) {
-    var cursor = -d / 2;
-    var gaps = normalizeOpenings(openings, -d / 2, d / 2);
-    for (var i = 0; i <= gaps.length; i++) {
-      var end = i < gaps.length ? gaps[i].from : d / 2;
-      if (end - cursor > 0.03) {
-        addBox(parent, t, h, end - cursor, mat, x, y, (cursor + end) / 2);
-      }
-      if (i < gaps.length) {
-        cursor = gaps[i].to;
-      }
-    }
-  }
-
-  function normalizeOpenings(openings, min, max) {
-    var result = [];
-    openings = openings || [];
-    for (var i = 0; i < openings.length; i++) {
-      var a = clamp(openings[i].from, min, max);
-      var b = clamp(openings[i].to, min, max);
-      if (b > a) {
-        result.push({ from: a, to: b });
-      }
-    }
-    result.sort(function (a, b) {
-      return a.from - b.from;
-    });
-    return result;
   }
 
   function createConveyors(layout, mats) {
@@ -5224,8 +5040,6 @@ if (mount) {
         var sx = -len / 2 + (s + 0.5) * len / slatCount;
         addBox(group, 0.035, 0.032, 0.58, mats.conveyorRoller, sx, 0.592, 0);
       }
-      addCylinder(group, 0.09, 0.09, 0.74, 18, mats.conveyorRoller, -len / 2 + 0.08, 0.56, 0, Math.PI / 2, 0, 0);
-      addCylinder(group, 0.09, 0.09, 0.74, 18, mats.conveyorRoller, len / 2 - 0.08, 0.56, 0, Math.PI / 2, 0, 0);
     }
 
     var legCount = Math.max(2, Math.floor(len / 2.1));
@@ -5273,8 +5087,7 @@ if (mount) {
   function createStations(layout, flow, template, mats) {
     var cleanMap = {};
     var cleanZones = Array.isArray(template.cleanZones) ? template.cleanZones : [];
-    var i;
-    for (i = 0; i < cleanZones.length; i++) {
+    for (var i = 0; i < cleanZones.length; i++) {
       cleanMap[String(cleanZones[i])] = true;
     }
 
@@ -5320,44 +5133,20 @@ if (mount) {
   }
 
   function getStationKind(name, productType, index) {
-    if (isReceivingName(name)) {
-      return "receiving";
-    }
-    if (isShippingName(name)) {
-      return "shipping";
-    }
-    if (isInspectionName(name) || isTestName(name)) {
-      return "inspection";
-    }
-    if (isPackagingName(name)) {
-      return "packaging";
-    }
-    if (isTankName(name)) {
-      return "tank";
-    }
-    if (isOvenName(name)) {
-      return "oven";
-    }
-    if (isPressName(name)) {
-      return "press";
-    }
-    if (isRobotName(name)) {
-      return "robot";
-    }
+    if (isReceivingName(name)) return "receiving";
+    if (isShippingName(name)) return "shipping";
+    if (isInspectionName(name) || isTestName(name)) return "inspection";
+    if (isPackagingName(name)) return "packaging";
+    if (isTankName(name)) return "tank";
+    if (isOvenName(name)) return "oven";
+    if (isPressName(name)) return "press";
+    if (isRobotName(name)) return "robot";
 
     var type = String(productType || "");
-    if (type.indexOf("battery") !== -1) {
-      return index % 4 === 1 ? "tank" : (index % 4 === 2 ? "oven" : "robot");
-    }
-    if (type.indexOf("electronic") !== -1) {
-      return index % 3 === 0 ? "inspection" : "robot";
-    }
-    if (type.indexOf("food") !== -1) {
-      return index % 3 === 1 ? "tank" : (index % 3 === 2 ? "oven" : "packaging");
-    }
-    if (type.indexOf("sheet") !== -1 || type.indexOf("mold") !== -1) {
-      return index % 2 ? "press" : "cnc";
-    }
+    if (type.indexOf("battery") !== -1) return index % 4 === 1 ? "tank" : (index % 4 === 2 ? "oven" : "robot");
+    if (type.indexOf("electronic") !== -1) return index % 3 === 0 ? "inspection" : "robot";
+    if (type.indexOf("food") !== -1) return index % 3 === 1 ? "tank" : (index % 3 === 2 ? "oven" : "packaging");
+    if (type.indexOf("sheet") !== -1 || type.indexOf("mold") !== -1) return index % 2 ? "press" : "cnc";
     return "cnc";
   }
 
@@ -5368,21 +5157,15 @@ if (mount) {
 
     var platform = addBox(group, 1.7, 0.32, 1.28, bottleneckMaterial(mats.machineGray, isBottleneck), 0, 0.16, 0);
     collectBottleneck(platform, isBottleneck);
-
     addBox(group, 1.42, 0.08, 0.95, mats.conveyorRoller, 0, 0.38, 0);
     for (var i = 0; i < 4; i++) {
       addCylinder(group, 0.05, 0.05, 0.92, 12, mats.conveyorFrame, -0.52 + i * 0.35, 0.46, 0, Math.PI / 2, 0, 0);
     }
-
-    var py = 0.52;
-    var scale = 0.62;
-    createSmallPallet(group, -0.35, py, 0.18, mats, scale);
-    createStackedCartons(group, -0.35, palletTopY(py, scale), 0.18, mats, 2, 2, 0.24);
-
+    createSmallPallet(group, -0.35, 0.52, 0.18, mats, 0.62);
+    createStackedCartons(group, -0.35, palletTopY(0.52, 0.62), 0.18, mats, 2, 2, 0.24);
     addBox(group, 0.42, 0.72, 0.2, mats.machineDark, 0.66, 0.62, -0.42);
     addBox(group, 0.32, 0.42, 0.035, mats.windowGlass, 0.66, 0.77, -0.53);
     createBeacon(group, 0.66, 1.08, -0.42, mats, isBottleneck);
-
     equipmentGroup.add(group);
   }
 
@@ -5394,13 +5177,11 @@ if (mount) {
     var dock = addBox(group, 1.85, 0.36, 1.22, bottleneckMaterial(mats.machineBlue, isBottleneck), -0.1, 0.18, 0);
     collectBottleneck(dock, isBottleneck);
     addBox(group, 1.55, 0.08, 0.98, mats.conveyorRoller, -0.1, 0.42, 0);
-
     addBox(group, 1.55, 0.72, 0.92, mats.machineGray, 0.82, 0.82, 0);
     addBox(group, 0.52, 0.55, 0.9, mats.machineYellow, 1.8, 0.68, 0);
     for (var i = 0; i < 4; i++) {
       addCylinder(group, 0.11, 0.11, 0.09, 18, mats.darkRubber, i < 2 ? 0.34 : 1.42, 0.21, i % 2 ? 0.48 : -0.48, Math.PI / 2, 0, 0);
     }
-
     addBox(group, 1.15, 0.1, 0.06, mats.safetyYellow, -0.3, 0.55, -0.62);
     createBeacon(group, -0.85, 0.86, -0.45, mats, isBottleneck);
     equipmentGroup.add(group);
@@ -5418,13 +5199,11 @@ if (mount) {
     collectBottleneck(left, isBottleneck);
     collectBottleneck(right, isBottleneck);
     collectBottleneck(top, isBottleneck);
-
     addBox(group, 0.45, 0.78, 0.55, mats.machineDark, -0.95, 0.39, 0.48);
     addBox(group, 0.32, 0.34, 0.035, mats.windowGlass, -0.95, 0.55, 0.77);
     addBox(group, 0.08, 0.08, 1.05, mats.beam, 0, 0.92, 0);
     addCylinder(group, 0.1, 0.1, 0.56, 22, mats.machineBlue, 0, 1.08, -0.28, Math.PI / 2, 0, 0);
     createBeacon(group, -0.95, 0.88, 0.48, mats, isBottleneck);
-
     equipmentGroup.add(group);
   }
 
@@ -5435,14 +5214,12 @@ if (mount) {
 
     var body = addBox(group, 1.52, 1.0, 0.94, bottleneckMaterial(mats.machineBlue, isBottleneck), 0, 0.5, 0);
     collectBottleneck(body, isBottleneck);
-
     addBox(group, 1.08, 0.58, 0.98, mats.machineDark, -0.1, 0.56, 0);
     addBox(group, 0.86, 0.42, 0.06, mats.windowGlass, -0.1, 0.58, 0.5);
     addCylinder(group, 0.26, 0.26, 0.96, 28, mats.productOrange, 0.12, 1.22, -0.22, Math.PI / 2, 0, 0);
     addBox(group, 0.72, 0.18, 0.72, mats.machineGray, 0.42, 1.03, 0);
     addBox(group, 1.4, 0.1, 0.54, mats.conveyorBelt, -0.05, 0.36, 0);
     createBeacon(group, 0.72, 1.12, 0.34, mats, isBottleneck);
-
     equipmentGroup.add(group);
   }
 
@@ -5453,14 +5230,12 @@ if (mount) {
 
     var tank = addCylinder(group, 0.44, 0.52, 1.36, 32, bottleneckMaterial(mats.machineGreen, isBottleneck), -0.15, 0.78, 0, 0, 0, 0);
     collectBottleneck(tank, isBottleneck);
-
     addCylinder(group, 0.32, 0.42, 0.16, 32, mats.machineGray, -0.15, 1.54, 0);
     addBox(group, 0.12, 0.12, 0.9, mats.machineGray, 0.38, 1.23, -0.26);
     addCylinder(group, 0.08, 0.08, 0.62, 16, mats.machineGray, 0.58, 0.92, 0.22, 0, 0, Math.PI / 2);
     addBox(group, 0.42, 0.72, 0.24, mats.machineDark, 0.66, 0.54, -0.45);
     addBox(group, 0.3, 0.3, 0.035, mats.windowGlass, 0.66, 0.64, -0.585);
     createBeacon(group, 0.66, 0.93, -0.45, mats, isBottleneck);
-
     equipmentGroup.add(group);
   }
 
@@ -5471,7 +5246,6 @@ if (mount) {
 
     var body = addBox(group, 1.75, 1.04, 1.0, bottleneckMaterial(mats.machineGray, isBottleneck), 0, 0.52, 0);
     collectBottleneck(body, isBottleneck);
-
     addBox(group, 1.4, 0.62, 0.08, mats.machineDark, 0, 0.55, 0.52);
     addBox(group, 1.2, 0.42, 0.035, mats.windowGlass, 0, 0.58, 0.57);
     for (var i = 0; i < 4; i++) {
@@ -5480,7 +5254,6 @@ if (mount) {
     addCylinder(group, 0.13, 0.13, 0.52, 18, mats.machineDark, -0.58, 1.32, -0.32, 0, 0, 0);
     addCylinder(group, 0.16, 0.16, 0.12, 18, mats.machineDark, -0.58, 1.65, -0.32, 0, 0, 0);
     createBeacon(group, 0.74, 1.18, 0.28, mats, isBottleneck);
-
     equipmentGroup.add(group);
   }
 
@@ -5491,19 +5264,17 @@ if (mount) {
 
     var pressMat = bottleneckMaterial(mats.machineBlue, isBottleneck);
     var base = addBox(group, 1.35, 0.28, 1.0, pressMat, 0, 0.14, 0);
-    collectBottleneck(base, isBottleneck);
     var left = addBox(group, 0.28, 1.35, 0.92, pressMat, -0.48, 0.86, 0);
     var right = addBox(group, 0.28, 1.35, 0.92, pressMat, 0.48, 0.86, 0);
     var crown = addBox(group, 1.28, 0.34, 0.96, pressMat, 0, 1.46, 0);
+    collectBottleneck(base, isBottleneck);
     collectBottleneck(left, isBottleneck);
     collectBottleneck(right, isBottleneck);
     collectBottleneck(crown, isBottleneck);
-
     addBox(group, 0.72, 0.22, 0.72, mats.machineYellow, 0, 1.12, 0);
     addBox(group, 0.9, 0.08, 0.72, mats.machineDark, 0, 0.54, 0);
     addBox(group, 0.36, 0.58, 0.2, mats.machineDark, 0.78, 0.64, -0.42);
     createBeacon(group, 0.78, 0.98, -0.42, mats, isBottleneck);
-
     equipmentGroup.add(group);
   }
 
@@ -5514,17 +5285,14 @@ if (mount) {
 
     var body = addBox(group, 1.42, 1.05, 1.02, bottleneckMaterial(mats.machineBlue, isBottleneck), 0, 0.525, 0);
     collectBottleneck(body, isBottleneck);
-
     addBox(group, 1.0, 0.56, 0.055, mats.machineDark, -0.08, 0.62, 0.54);
     addBox(group, 0.72, 0.42, 0.035, mats.windowGlass, -0.08, 0.66, 0.585);
     addBox(group, 0.34, 0.76, 0.22, mats.machineDark, 0.88, 0.52, 0.2);
     addBox(group, 0.23, 0.32, 0.035, mats.windowGlass, 0.88, 0.68, 0.325);
-
     addCylinder(group, 0.09, 0.1, 0.48, 20, mats.machineYellow, 0.02, 0.82, -0.36, 0, 0, 0);
     addBox(group, 0.84, 0.12, 0.52, mats.conveyorDark, -0.02, 0.28, -0.18);
     addBox(group, 0.56, 0.22, 0.34, mats.machineGray, -0.48, 0.18, -0.66);
     createBeacon(group, 0.88, 0.92, 0.2, mats, isBottleneck);
-
     equipmentGroup.add(group);
   }
 
@@ -5537,7 +5305,6 @@ if (mount) {
     addBox(group, 0.72, 0.28, 0.58, mats.machineDark, -0.46, 0.34, -0.26);
     createIndustrialRobot(group, 0.15, 0, 0.08, mats, isBottleneck);
     createSafetyFence(pos, mats);
-
     equipmentGroup.add(group);
   }
 
@@ -5580,15 +5347,7 @@ if (mount) {
     addBox(wrist, 0.08, 0.2, 0.055, mats.machineDark, 0.57, -0.08, -0.08);
 
     parent.add(robotRoot);
-    animatedRobots.push({
-      root: robotRoot,
-      waist: waist,
-      upper: upper,
-      elbow: elbow,
-      forearm: forearm,
-      wrist: wrist,
-      phase: x * 0.8 + z * 0.6
-    });
+    animatedRobots.push({ root: robotRoot, waist: waist, upper: upper, elbow: elbow, forearm: forearm, wrist: wrist, phase: x * 0.8 + z * 0.6 });
   }
 
   function createCleanEnclosure(pos, mats) {
@@ -5606,7 +5365,6 @@ if (mount) {
     addBox(group, 2.35, 0.06, 0.06, mats.cleanFrame, 0, 2.08, 1.1);
     addBox(group, 0.06, 0.06, 2.2, mats.cleanFrame, -1.16, 2.08, 0);
     addBox(group, 0.06, 0.06, 2.2, mats.cleanFrame, 1.16, 2.08, 0);
-
     equipmentGroup.add(group);
   }
 
@@ -5627,7 +5385,6 @@ if (mount) {
     var side = new THREE.Group();
     side.position.set(x, 0, z);
     side.rotation.y = ry;
-
     addBox(side, length, 0.035, 0.035, mats.fencePost, 0, 0.18, 0);
     addBox(side, length, 0.04, 0.035, mats.fencePost, 0, 1.22, 0);
     addBox(side, length, 0.025, 0.025, mats.fencePost, 0, 0.72, 0);
@@ -5642,38 +5399,19 @@ if (mount) {
 
   function createWipBuffer(pos, index, mats, layout) {
     if (layout.prodMethod === "line") {
-      createLineWipBuffer(pos, index, mats, layout);
-    } else {
-      createDiscreteWipBuffer(pos, index, mats, layout);
+      var side = pos.z > layout.lineZ + 0.4 ? -1 : 1;
+      var x = pos.x + (index % 2 ? 0.82 : -0.82);
+      var z = pos.z + side * 1.15;
+      addBox(equipmentGroup, 0.92, 0.16, 0.62, mats.machineGray, x, 0.36, z);
+      createSmallPallet(equipmentGroup, x, 0.47, z, mats, 0.62);
+      createStackedCartons(equipmentGroup, x, palletTopY(0.47, 0.62), z, mats, 2, 1 + (index % 2), 0.2);
+      return;
     }
-  }
 
-  function createLineWipBuffer(pos, index, mats, layout) {
-    var side = pos.z > layout.lineZ + 0.4 ? -1 : 1;
-    var x = pos.x + (index % 2 ? 0.82 : -0.82);
-    var z = pos.z + side * 1.15;
-    var py = 0.47;
-    var scale = 0.62;
-    addBox(equipmentGroup, 0.92, 0.16, 0.62, mats.machineGray, x, 0.36, z);
-    createSmallPallet(equipmentGroup, x, py, z, mats, scale);
-    createStackedCartons(equipmentGroup, x, palletTopY(py, scale), z, mats, 2, 1 + (index % 2), 0.2);
-    for (var i = 0; i < 4; i++) {
-      addCylinder(equipmentGroup, 0.06, 0.06, 0.045, 12, mats.darkRubber, x + (i < 2 ? -0.35 : 0.35), 0.12, z + (i % 2 ? -0.24 : 0.24), Math.PI / 2, 0, 0);
-    }
-  }
-
-  function createDiscreteWipBuffer(pos, index, mats, layout) {
     var stop = stationWipPoint(layout, pos, index);
-    var py = 0.22;
-    var scale = 0.78;
-    createSmallPallet(equipmentGroup, stop.x - 0.45, py, stop.z, mats, scale);
-    createStackedCartons(equipmentGroup, stop.x - 0.45, palletTopY(py, scale), stop.z, mats, 2, 1 + (index % 2), 0.22);
-
+    createSmallPallet(equipmentGroup, stop.x - 0.45, 0.22, stop.z, mats, 0.78);
+    createStackedCartons(equipmentGroup, stop.x - 0.45, palletTopY(0.22, 0.78), stop.z, mats, 2, 1 + (index % 2), 0.22);
     createWipCage(equipmentGroup, stop.x + 0.48, 0, stop.z + 0.02, mats, 0.82);
-    addBox(equipmentGroup, 0.92, 0.08, 0.42, mats.machineGray, stop.x + 0.02, 0.72, stop.z - 0.62);
-    for (var i = 0; i < 3; i++) {
-      addBox(equipmentGroup, 0.24, 0.16, 0.24, i % 2 ? mats.cartonA : mats.cartonB, stop.x - 0.28 + i * 0.28, 0.84, stop.z - 0.62);
-    }
   }
 
   function stationWipPoint(layout, pos, index) {
@@ -5690,10 +5428,8 @@ if (mount) {
 
   function createWorkers(layout, flow, mats) {
     var p = layout.processPositions;
-    var i;
-
     if (layout.prodMethod === "cell") {
-      for (i = 0; i < layout.cellInfos.length; i++) {
+      for (var i = 0; i < layout.cellInfos.length; i++) {
         createWorker(v3(layout.cellInfos[i].cx, 0, layout.cellInfos[i].z0 + 1.85), mats, Math.PI);
       }
     } else if (layout.prodMethod === "functional") {
@@ -5707,19 +5443,15 @@ if (mount) {
         }
       }
     }
-
     createWorker(v3(layout.leftX + 3.7, 0, layout.mainAisleZ + 1.55), mats, -0.5);
-    createWorker(v3(layout.leftX + 7.6, 0, 6.25), mats, 1.2);
     createWorker(v3(layout.qcX + 1.55, 0, layout.qcZ - 1.05), mats, Math.PI);
     createWorker(v3(layout.packX + 0.9, 0, layout.packZ - 1.55), mats, -0.2);
-    createWorker(v3(layout.rightX - 3.7, 0, layout.mainAisleZ + 1.55), mats, 0.5);
   }
 
   function createWorker(pos, mats, ry) {
     var group = new THREE.Group();
     group.position.set(pos.x, 0, pos.z);
     group.rotation.y = ry || 0;
-
     addBox(group, 0.13, 0.52, 0.13, mats.workerPants, -0.09, 0.26, 0);
     addBox(group, 0.13, 0.52, 0.13, mats.workerPants, 0.09, 0.26, 0);
     addCylinder(group, 0.19, 0.22, 0.55, 16, mats.workerVest, 0, 0.73, 0);
@@ -5729,7 +5461,6 @@ if (mount) {
     addBox(group, 0.08, 0.43, 0.08, mats.workerPants, 0.28, 0.72, 0);
     addSphere(group, 0.16, mats.workerHead, 0, 1.11, 0);
     addCylinder(group, 0.18, 0.16, 0.11, 18, mats.safetyYellow, 0, 1.25, 0);
-
     equipmentGroup.add(group);
   }
 
@@ -5745,7 +5476,6 @@ if (mount) {
     var w = 5.0;
     var d = 2.35;
     var h = 2.15;
-
     addBox(group, w, 0.08, d, mats.officeWall, 0, 0.08, 0);
     addBox(group, w, h, 0.08, mats.officeWall, 0, h / 2, -d / 2);
     addBox(group, w, 0.62, 0.08, mats.officeWall, 0, 0.31, d / 2);
@@ -5754,28 +5484,42 @@ if (mount) {
     addBox(group, 1.55, 0.86, 0.035, mats.windowGlass, -1.3, 1.15, d / 2 + 0.025);
     addBox(group, 1.55, 0.86, 0.035, mats.windowGlass, 1.25, 1.15, d / 2 + 0.025);
     addBox(group, 0.68, 1.22, 0.05, mats.dockDoor, 0, 0.95, d / 2 + 0.03);
-
     for (var i = 0; i < 3; i++) {
       addBox(group, 0.72, 0.08, 0.46, mats.palletWood, -1.5 + i * 1.2, 0.52, -0.15);
       addBox(group, 0.24, 0.34, 0.24, mats.machineDark, -1.5 + i * 1.2, 0.22, 0.52);
       addBox(group, 0.36, 0.28, 0.03, mats.windowGlass, -1.5 + i * 1.2, 0.76, -0.42);
     }
-
     equipmentGroup.add(group);
     addHtmlLabel("Office / Control", v3(layout.leftX + 13.5, 2.6, layout.halfD - 0.9), "zone");
   }
 
   function createControlCabinets(layout, mats) {
-    var startX = layout.qcX - 4.1;
-    for (var i = 0; i < 6; i++) {
-      var x = startX + i * 0.72;
-      var z = layout.halfD - 0.55;
-      addBox(equipmentGroup, 0.46, 1.32, 0.28, mats.machineDark, x, 0.66, z);
-      addBox(equipmentGroup, 0.28, 0.22, 0.035, mats.windowGlass, x, 0.95, z - 0.16);
-      addCylinder(equipmentGroup, 0.035, 0.035, 0.025, 12, i % 3 === 0 ? mats.sensorRed : mats.sensorGreen, x - 0.12, 1.15, z - 0.16, Math.PI / 2, 0, 0);
-      addCylinder(equipmentGroup, 0.035, 0.035, 0.025, 12, mats.safetyYellow, x + 0.12, 1.15, z - 0.16, Math.PI / 2, 0, 0);
+    var group = new THREE.Group();
+    group.name = "electricalCabinetRow";
+    var panelCount = 4;
+    var w = 0.68;
+    var h = 1.58;
+    var d = 0.34;
+    var gap = 0.14;
+    var startX = layout.qcX - 3.15;
+    var z = layout.halfD - 0.48;
+
+    for (var i = 0; i < panelCount; i++) {
+      var x = startX + i * (w + gap);
+      addBox(group, w, h, d, mats.cabinetBody, x, h / 2, z);
+      addBox(group, w * 0.9, h * 0.88, 0.035, mats.cabinetDoor, x, h * 0.52, z - d / 2 - 0.024);
+      addBox(group, 0.018, h * 0.82, 0.026, mats.cabinetHandle, x, h * 0.52, z - d / 2 - 0.05);
+      addCylinder(group, 0.018, 0.018, 0.22, 10, mats.cabinetHandle, x + w * 0.31, 0.87, z - d / 2 - 0.063, 0, 0, 0);
+      addBox(group, w * 0.52, 0.12, 0.024, mats.windowGlass, x - 0.03, 1.18, z - d / 2 - 0.066);
+      for (var l = 0; l < 4; l++) {
+        addBox(group, w * 0.58, 0.018, 0.018, mats.cabinetHandle, x, 0.36 + l * 0.075, z - d / 2 - 0.07);
+      }
+      addCylinder(group, 0.032, 0.032, 0.024, 12, i % 3 === 0 ? mats.sensorRed : mats.sensorGreen, x - 0.18, 1.38, z - d / 2 - 0.07, Math.PI / 2, 0, 0);
+      addCylinder(group, 0.032, 0.032, 0.024, 12, mats.safetyYellow, x - 0.08, 1.38, z - d / 2 - 0.07, Math.PI / 2, 0, 0);
     }
-    addHtmlLabel("Electrical / PLC", v3(startX + 1.8, 1.85, layout.halfD - 0.55), "zone");
+
+    equipmentGroup.add(group);
+    addHtmlLabel("Electrical / PLC", v3(startX + (panelCount - 1) * (w + gap) / 2, 1.98, z - 0.2), "zone");
   }
 
   function createMethodFixtures(layout, flow, mats) {
@@ -5795,14 +5539,11 @@ if (mount) {
       addBox(equipmentGroup, 0.72, 1.05, 0.28, mats.machineDark, info.cx - info.w / 2 + 0.55, 0.525, info.z1 + 1.0);
       addBox(equipmentGroup, 0.5, 0.22, 0.035, mats.windowGlass, info.cx - info.w / 2 + 0.55, 0.78, info.z1 + 0.84);
       createBeacon(equipmentGroup, info.cx - info.w / 2 + 0.84, 1.1, info.z1 + 0.9, mats, false);
-
       for (var j = 0; j < 2; j++) {
-        var py = 0.22;
-        var scale = 0.7;
         var x = info.cx + (j ? 1.0 : -1.0);
         var z = info.entry.z - 0.48;
-        createSmallPallet(equipmentGroup, x, py, z, mats, scale);
-        createStackedCartons(equipmentGroup, x, palletTopY(py, scale), z, mats, 2, 1 + j, 0.2);
+        createSmallPallet(equipmentGroup, x, 0.22, z, mats, 0.7);
+        createStackedCartons(equipmentGroup, x, palletTopY(0.22, 0.7), z, mats, 2, 1 + j, 0.2);
       }
     }
   }
@@ -5831,6 +5572,118 @@ if (mount) {
       addBox(equipmentGroup, 0.52, 0.22, 0.035, mats.windowGlass, blocks[i].cx - blocks[i].w / 2 + 0.48, 0.82, blocks[i].cz + blocks[i].d / 2 - 0.54);
       createBeacon(equipmentGroup, blocks[i].cx - blocks[i].w / 2 + 0.78, 1.14, blocks[i].cz + blocks[i].d / 2 - 0.45, mats, false);
     }
+  }
+
+  function createElectricalInfrastructure(layout, flow, template, mats) {
+    var group = new THREE.Group();
+    group.name = "electricalInfrastructure";
+    equipmentGroup.add(group);
+
+    var rack = createMainCableRack(group, layout, mats);
+    createBranchConduits(group, layout, flow, template, mats, rack);
+    createGroundingTerminal(group, layout, mats);
+  }
+
+  function createMainCableRack(parent, layout, mats) {
+    var rackY = clamp(layout.roofY - 0.46, 3.25, layout.columnHeight - 0.12);
+    var rackZ = chooseCableRackZ(layout);
+    var x1 = clamp(layout.lineStart - 1.8, layout.leftX + 2.0, layout.rightX - 2.0);
+    var x2 = clamp(layout.packX + 2.05, x1 + 6.0, layout.rightX - 2.0);
+    var len = Math.max(1, x2 - x1);
+    var cx = (x1 + x2) / 2;
+    var rackW = 0.62;
+
+    addBox(parent, len, 0.055, 0.07, mats.cableRack, cx, rackY, rackZ - rackW / 2).castShadow = false;
+    addBox(parent, len, 0.055, 0.07, mats.cableRack, cx, rackY, rackZ + rackW / 2).castShadow = false;
+    addBox(parent, len, 0.026, 0.04, mats.cableRung, cx, rackY - 0.09, rackZ).castShadow = false;
+
+    var rungCount = Math.min(18 + Math.floor(layout.n / 2), Math.max(8, Math.floor(len / 1.45)));
+    for (var i = 0; i <= rungCount; i++) {
+      var x = x1 + len * i / Math.max(1, rungCount);
+      addBox(parent, 0.075, 0.04, rackW, mats.cableRung, x, rackY - 0.025, rackZ).castShadow = false;
+      if (i % 4 === 0) {
+        addBox(parent, 0.026, 0.52, 0.026, mats.cableRack, x, rackY + 0.25, rackZ - rackW / 2).castShadow = false;
+        addBox(parent, 0.026, 0.52, 0.026, mats.cableRack, x, rackY + 0.25, rackZ + rackW / 2).castShadow = false;
+      }
+    }
+
+    addHtmlLabel("Main Cable Rack", v3(cx, rackY + 0.35, rackZ), "zone");
+    return { x1: x1, x2: x2, z: rackZ, y: rackY, width: rackW };
+  }
+
+  function chooseCableRackZ(layout) {
+    if (layout.prodMethod === "cell" && layout.cellInfos.length) {
+      var sum = 0;
+      for (var i = 0; i < layout.cellInfos.length; i++) {
+        sum += layout.cellInfos[i].cz;
+      }
+      return clamp(sum / layout.cellInfos.length, -layout.halfD + 2.2, layout.halfD - 2.6);
+    }
+    if (layout.prodMethod === "functional") {
+      return clamp(layout.lineZ + 2.4, -layout.halfD + 2.2, layout.halfD - 3.0);
+    }
+    return clamp(layout.lineZ + 1.05, -layout.halfD + 2.2, layout.halfD - 2.6);
+  }
+
+  function createBranchConduits(parent, layout, flow, template, mats, rack) {
+    var cleanMap = {};
+    var cleanZones = Array.isArray(template.cleanZones) ? template.cleanZones : [];
+    for (var i = 0; i < cleanZones.length; i++) {
+      cleanMap[String(cleanZones[i])] = true;
+    }
+
+    var branchY = rack.y - 0.18;
+    for (i = 0; i < flow.length; i++) {
+      var pos = layout.processPositions[i];
+      if (!pos) {
+        continue;
+      }
+      var kind = getStationKind(flow[i], layout.productType, i);
+      var clean = !!cleanMap[flow[i]];
+      var drop = chooseConduitDropPoint(layout, pos, rack.z, i, clean);
+      var topY = clamp(stationElectricalTopY(kind, clean) + 0.12, 1.18, rack.y - 0.36);
+      var tapX = clamp(pos.x, rack.x1 + 0.18, rack.x2 - 0.18);
+      var tap = v3(tapX, branchY, rack.z);
+
+      addBox(parent, 0.18, 0.08, 0.16, mats.cableRack, tap.x, branchY, tap.z).castShadow = false;
+      createCylinderBetween(parent, tap, v3(drop.x, branchY, drop.z), 0.026, 10, mats.conduit);
+      createCylinderBetween(parent, v3(drop.x, branchY, drop.z), v3(drop.x, topY, drop.z), 0.028, 10, mats.conduit);
+      addBox(parent, 0.2, 0.16, 0.12, mats.cabinetBody, drop.x, topY - 0.02, drop.z).castShadow = false;
+    }
+  }
+
+  function chooseConduitDropPoint(layout, pos, rackZ, index, clean) {
+    if (isInsideQcRoom(layout, pos)) {
+      return v3(clamp(pos.x + (index % 2 ? 0.44 : -0.44), layout.qcX - layout.qcRoomW / 2 + 0.45, layout.qcX + layout.qcRoomW / 2 - 0.45), 0, pos.z);
+    }
+    var side = rackZ >= pos.z ? 1 : -1;
+    var offset = clean ? 1.34 : (layout.prodMethod === "line" ? 1.02 : 1.14);
+    var z = clamp(pos.z + side * offset, -layout.halfD + 1.2, layout.halfD - 1.2);
+    var x = clamp(pos.x + (index % 2 ? 0.44 : -0.44), layout.leftX + 1.2, layout.rightX - 1.2);
+    return v3(x, 0, z);
+  }
+
+  function stationElectricalTopY(kind, clean) {
+    if (clean) return 2.22;
+    if (kind === "inspection") return 1.84;
+    if (kind === "tank" || kind === "oven" || kind === "press") return 1.78;
+    if (kind === "packaging") return 1.5;
+    if (kind === "robot") return 1.54;
+    if (kind === "receiving" || kind === "shipping") return 1.36;
+    return 1.32;
+  }
+
+  function createGroundingTerminal(parent, layout, mats) {
+    var x = layout.leftX + 4.0;
+    var z = layout.halfD - 2.4;
+    var y = 0.92;
+    addBox(parent, 0.52, 0.38, 0.16, mats.earthBox, x + 0.34, y, z);
+    addBox(parent, 0.42, 0.28, 0.026, mats.cabinetDoor, x + 0.34, y, z - 0.09);
+    addBox(parent, 0.2, 0.035, 0.022, mats.safetyYellow, x + 0.34, y + 0.02, z - 0.115);
+    addCylinder(parent, 0.018, 0.018, 0.68, 10, mats.earthCopper, x + 0.16, 0.42, z - 0.08);
+    createCylinderBetween(parent, v3(x + 0.16, 0.76, z - 0.08), v3(x + 0.34, 0.74, z - 0.08), 0.015, 10, mats.earthCopper);
+    addCylinder(parent, 0.11, 0.11, 0.018, 20, mats.earthCopper, x + 0.16, 0.04, z - 0.08);
+    addHtmlLabel("Ground Terminal", v3(x + 0.55, 1.28, z), "zone");
   }
 
   function createKanbanShelf(pos, mats, seed) {
@@ -5867,21 +5720,17 @@ if (mount) {
       var y = 0.48 + l * 0.72;
       addBox(group, totalW + 0.12, 0.08, 0.08, mats.rackBeam, 0, y, -depth / 2);
       addBox(group, totalW + 0.12, 0.08, 0.08, mats.rackBeam, 0, y, depth / 2);
-
       for (var b = 0; b < bays; b++) {
         var bx = -totalW / 2 + bayW * (b + 0.5);
         if ((b + l) % 4 !== 2) {
-          var py = y + 0.1;
-          var scale = 0.68;
-          createSmallPallet(group, bx, py, 0, mats, scale);
-          createStackedCartons(group, bx, palletTopY(py, scale), 0, mats, 2, 1 + ((b + l) % 2), 0.22);
+          createSmallPallet(group, bx, y + 0.1, 0, mats, 0.68);
+          createStackedCartons(group, bx, palletTopY(y + 0.1, 0.68), 0, mats, 2, 1 + ((b + l) % 2), 0.22);
         }
       }
     }
 
     createBeamBetween(group, v3(-totalW / 2, 0.45, -depth / 2 - 0.02), v3(totalW / 2, 2.9, -depth / 2 - 0.02), 0.035, mats.machineDark);
     createBeamBetween(group, v3(totalW / 2, 0.45, depth / 2 + 0.02), v3(-totalW / 2, 2.9, depth / 2 + 0.02), 0.035, mats.machineDark);
-
     equipmentGroup.add(group);
   }
 
@@ -5918,8 +5767,6 @@ if (mount) {
     }
     addBox(parent, 0.78 * s, 0.035 * s, 0.035 * s, mats.conveyorFrame, x, y + 0.92 * s, z - 0.26 * s);
     addBox(parent, 0.78 * s, 0.035 * s, 0.035 * s, mats.conveyorFrame, x, y + 0.92 * s, z + 0.26 * s);
-    addBox(parent, 0.035 * s, 0.035 * s, 0.56 * s, mats.conveyorFrame, x - 0.36 * s, y + 0.92 * s, z);
-    addBox(parent, 0.035 * s, 0.035 * s, 0.56 * s, mats.conveyorFrame, x + 0.36 * s, y + 0.92 * s, z);
     addBox(parent, 0.62 * s, 0.42 * s, 0.44 * s, mats.fenceMesh, x, y + 0.58 * s, z);
     for (i = 0; i < 4; i++) {
       addCylinder(parent, 0.055 * s, 0.055 * s, 0.04 * s, 12, mats.darkRubber, x + (i < 2 ? -0.31 * s : 0.31 * s), y + 0.08 * s, z + (i % 2 ? -0.21 * s : 0.21 * s), Math.PI / 2, 0, 0);
@@ -5935,30 +5782,18 @@ if (mount) {
       }
       var node = createTransporterVehicle(specs[i].type, mats);
       var total = Math.max(0.1, pathLength(specs[i].path));
-      var item = {
-        node: node,
-        path: specs[i].path,
-        total: total,
-        progress: specs[i].offset || 0,
-        speed: specs[i].speed || 0.7,
-        type: specs[i].type
-      };
+      var item = { node: node, path: specs[i].path, total: total, progress: specs[i].offset || 0, speed: specs[i].speed || 0.7, type: specs[i].type };
       transporters.push(item);
       equipmentGroup.add(node);
       createTransportGuide(specs[i].path, mats, i);
     }
-
     agvGroup = transporters.length ? transporters[0].node : null;
     agvPath = transporters.length ? transporters[0].path : [];
   }
 
   function createTransporterVehicle(type, mats) {
-    if (type === "forklift") {
-      return createForkliftVehicle(mats);
-    }
-    if (type === "tugger") {
-      return createTuggerVehicle(mats);
-    }
+    if (type === "forklift") return createForkliftVehicle(mats);
+    if (type === "tugger") return createTuggerVehicle(mats);
     return createAgvVehicle(mats);
   }
 
@@ -5969,16 +5804,13 @@ if (mount) {
     addBox(group, 0.32, 0.38, 0.035, mats.windowGlass, -0.15, 0.72, -0.27);
     addBox(group, 0.06, 1.15, 0.06, mats.machineDark, 0.45, 0.72, -0.25);
     addBox(group, 0.06, 1.15, 0.06, mats.machineDark, 0.45, 0.72, 0.25);
-    addBox(group, 0.06, 0.06, 0.58, mats.machineDark, 0.45, 1.28, 0);
     addBox(group, 0.7, 0.055, 0.065, mats.machineDark, 0.78, 0.18, -0.2);
     addBox(group, 0.7, 0.055, 0.065, mats.machineDark, 0.78, 0.18, 0.2);
     for (var i = 0; i < 4; i++) {
       addCylinder(group, 0.12, 0.12, 0.09, 18, mats.darkRubber, i < 2 ? -0.35 : 0.35, 0.13, i % 2 ? 0.35 : -0.35, Math.PI / 2, 0, 0);
     }
-    var py = 0.31;
-    var scale = 0.56;
-    createSmallPallet(group, 0.88, py, 0, mats, scale);
-    createStackedCartons(group, 0.88, palletTopY(py, scale), 0, mats, 2, 1, 0.19);
+    createSmallPallet(group, 0.88, 0.31, 0, mats, 0.56);
+    createStackedCartons(group, 0.88, palletTopY(0.31, 0.56), 0, mats, 2, 1, 0.19);
     addCylinder(group, 0.07, 0.07, 0.06, 16, mats.sensorGreen, -0.48, 0.48, 0, 0, 0, 0);
     return group;
   }
@@ -5988,19 +5820,14 @@ if (mount) {
     addBox(group, 1.05, 0.2, 0.62, mats.agvBody, 0, 0.16, 0);
     addBox(group, 0.5, 0.62, 0.5, mats.machineDark, -0.18, 0.52, 0);
     addBox(group, 0.36, 0.38, 0.035, mats.windowGlass, -0.18, 0.62, -0.27);
-    addBox(group, 0.08, 1.05, 0.08, mats.machineDark, 0.46, 0.66, -0.27);
-    addBox(group, 0.08, 1.05, 0.08, mats.machineDark, 0.46, 0.66, 0.27);
-    addBox(group, 0.08, 0.08, 0.68, mats.machineDark, 0.46, 1.16, 0);
     addBox(group, 0.72, 0.06, 0.08, mats.machineDark, 0.72, 0.24, -0.2);
     addBox(group, 0.72, 0.06, 0.08, mats.machineDark, 0.72, 0.24, 0.2);
     addCylinder(group, 0.1, 0.1, 0.08, 18, mats.sensorGreen, -0.48, 0.42, 0, 0, 0, 0);
     for (var i = 0; i < 4; i++) {
       addCylinder(group, 0.1, 0.1, 0.09, 18, mats.darkRubber, i < 2 ? -0.36 : 0.36, 0.12, i % 2 ? 0.36 : -0.36, Math.PI / 2, 0, 0);
     }
-    var py = 0.36;
-    var scale = 0.58;
-    createSmallPallet(group, 0.82, py, 0, mats, scale);
-    createStackedCartons(group, 0.82, palletTopY(py, scale), 0, mats, 2, 1, 0.2);
+    createSmallPallet(group, 0.82, 0.36, 0, mats, 0.58);
+    createStackedCartons(group, 0.82, palletTopY(0.36, 0.58), 0, mats, 2, 1, 0.2);
     return group;
   }
 
@@ -6026,9 +5853,7 @@ if (mount) {
       var dx = b.x - a.x;
       var dz = b.z - a.z;
       var len = Math.sqrt(dx * dx + dz * dz);
-      if (len < 0.05) {
-        continue;
-      }
+      if (len < 0.05) continue;
       var count = Math.max(3, Math.floor(len / 0.58));
       for (var j = index % 2; j < count; j += 3) {
         var t = (j + 0.5) / count;
@@ -6055,13 +5880,7 @@ if (mount) {
       addBox(group, 0.05, 0.026, 0.34, mats.aisleWhite, 0, 0.156, 0);
       var chosenPath = paths[i % paths.length];
       var total = Math.max(0.1, pathLength(chosenPath));
-      movingProducts.push({
-        node: group,
-        path: chosenPath,
-        total: total,
-        offset: total * i / 14,
-        speed: 1.04 + (i % 5) * 0.12
-      });
+      movingProducts.push({ node: group, path: chosenPath, total: total, offset: total * i / 14, speed: 1.04 + (i % 5) * 0.12 });
       equipmentGroup.add(group);
     }
   }
@@ -6102,9 +5921,7 @@ if (mount) {
 
     var inspectionCount = 0;
     for (i = 0; i < flow.length; i++) {
-      if (isInspectionName(flow[i]) || isTestName(flow[i])) {
-        inspectionCount += 1;
-      }
+      if (isInspectionName(flow[i]) || isTestName(flow[i])) inspectionCount += 1;
     }
     inspectionCount = Math.max(1, inspectionCount);
     var cleanCount = cleanZones ? cleanZones.length : 0;
@@ -6133,9 +5950,7 @@ if (mount) {
   }
 
   function updateMetricsPanel(metrics) {
-    if (!metrics) {
-      return;
-    }
+    if (!metrics) return;
     metricsNodes.layoutScore.textContent = String(metrics.layoutScore) + " / 100";
     metricsNodes.leadTime.textContent = String(metrics.leadTime) + " min";
     metricsNodes.throughput.textContent = String(metrics.throughput) + " / h";
@@ -6145,9 +5960,7 @@ if (mount) {
 
   function chooseInspectionIndex(flow) {
     for (var i = 0; i < flow.length; i++) {
-      if (isInspectionName(flow[i]) || isTestName(flow[i])) {
-        return i;
-      }
+      if (isInspectionName(flow[i]) || isTestName(flow[i])) return i;
     }
     return -1;
   }
@@ -6155,57 +5968,51 @@ if (mount) {
   function chooseBottleneckIndex(flow) {
     var start = Math.floor(flow.length * 0.48);
     for (var i = start; i < flow.length; i++) {
-      if (isInspectionName(flow[i]) || isTestName(flow[i])) {
-        return i;
-      }
+      if (isInspectionName(flow[i]) || isTestName(flow[i])) return i;
     }
     for (var j = start; j < flow.length; j++) {
-      if (!isReceivingName(flow[j]) && !isShippingName(flow[j])) {
-        return j;
-      }
+      if (!isReceivingName(flow[j]) && !isShippingName(flow[j])) return j;
     }
     for (var k = 0; k < flow.length; k++) {
-      if (!isReceivingName(flow[k]) && !isShippingName(flow[k])) {
-        return k;
-      }
+      if (!isReceivingName(flow[k]) && !isShippingName(flow[k])) return k;
     }
     return Math.max(0, Math.floor(flow.length / 2));
   }
 
   function isReceivingName(name) {
-    return hasAny(name, ["受入", "入荷", "原材料受入", "材料受入", "receiv", "inbound", "raw material"]);
+    return hasAny(name, ["受入", "入荷", "receiv", "inbound", "raw material"]);
   }
 
   function isShippingName(name) {
-    return hasAny(name, ["出荷", "発送", "ship", "outbound", "dispatch"]);
+    return hasAny(name, ["出荷", "ship", "outbound", "dispatch"]);
   }
 
   function isInspectionName(name) {
-    return hasAny(name, ["検査", "測定", "品質", "三次元", "外観", "寸法", "inspection", "measure", "vision", "qa", "qc", "aoi"]);
+    return hasAny(name, ["検査", "測定", "品質", "inspection", "measure", "vision", "qa", "qc", "aoi"]);
   }
 
   function isTestName(name) {
-    return hasAny(name, ["試験", "テスト", "機能検査", "test", "trial"]);
+    return hasAny(name, ["試験", "テスト", "test", "trial"]);
   }
 
   function isPackagingName(name) {
-    return hasAny(name, ["梱包", "包装", "箱詰", "箱詰め", "ラベル", "pack", "carton", "label"]);
+    return hasAny(name, ["梱包", "包装", "箱詰", "pack", "carton", "label"]);
   }
 
   function isTankName(name) {
-    return hasAny(name, ["洗浄", "洗い", "調合", "混練", "塗工", "注液", "充填", "表面処理", "化成", "tank", "coat", "fill", "wash", "mix"]);
+    return hasAny(name, ["洗浄", "調合", "混練", "塗工", "注液", "tank", "coat", "fill", "wash", "mix"]);
   }
 
   function isOvenName(name) {
-    return hasAny(name, ["乾燥", "熱", "炉", "リフロー", "dry", "oven", "heat", "cure", "furnace", "reflow"]);
+    return hasAny(name, ["乾燥", "熱", "炉", "dry", "oven", "heat", "cure", "furnace", "reflow"]);
   }
 
   function isPressName(name) {
-    return hasAny(name, ["プレス", "曲げ", "レーザー", "切断", "バリ", "ゲートカット", "射出", "press", "stamp", "deburr", "bend", "laser", "cut", "molding"]);
+    return hasAny(name, ["プレス", "曲げ", "レーザー", "切断", "バリ", "press", "stamp", "deburr", "bend", "laser", "cut", "molding"]);
   }
 
   function isRobotName(name) {
-    return hasAny(name, ["組立", "組付", "実装", "溶接", "巻回", "搬送", "robot", "assembly", "winding", "handling", "mount"]);
+    return hasAny(name, ["組立", "実装", "搬送", "robot", "assembly", "winding", "handling", "mount"]);
   }
 
   function isCncName(name) {
@@ -6215,21 +6022,13 @@ if (mount) {
   function hasAny(name, terms) {
     var s = String(name || "").toLowerCase();
     for (var i = 0; i < terms.length; i++) {
-      if (s.indexOf(String(terms[i]).toLowerCase()) !== -1) {
-        return true;
-      }
+      if (s.indexOf(String(terms[i]).toLowerCase()) !== -1) return true;
     }
     return false;
   }
 
   function bottleneckMaterial(base, isBottleneck) {
-    if (!isBottleneck) {
-      return base;
-    }
-    var mat = base.clone();
-    mat.emissive = new THREE.Color(0x8b0909);
-    mat.emissiveIntensity = 0.32;
-    return mat;
+    return isBottleneck && sharedBottleneckMaterial ? sharedBottleneckMaterial : base;
   }
 
   function collectBottleneck(mesh, isBottleneck) {
@@ -6267,43 +6066,14 @@ if (mount) {
 
     var p = layout.processPositions || [];
     for (i = 0; i < p.length; i++) {
-      if (isReceivingName(flow[i]) || isShippingName(flow[i])) {
-        continue;
-      }
+      if (isReceivingName(flow[i]) || isShippingName(flow[i])) continue;
       addAvoidRect(rects, p[i].x, p[i].z, layout.prodMethod === "line" ? 2.8 : 3.25, layout.prodMethod === "line" ? 2.3 : 3.0, "station");
     }
-
-    var paths = layout.conveyorPaths || [];
-    for (i = 0; i < paths.length; i++) {
-      var pts = paths[i].points || [];
-      for (var j = 0; j < pts.length - 1; j++) {
-        addSegmentAvoidRect(rects, pts[j], pts[j + 1], 1.25, "conveyor");
-      }
-    }
-
-    var tpaths = layout.transportPaths || [];
-    for (i = 0; i < tpaths.length; i++) {
-      pts = tpaths[i].path || [];
-      for (j = 0; j < pts.length - 1; j++) {
-        addSegmentAvoidRect(rects, pts[j], pts[j + 1], 0.75, "transport");
-      }
-    }
-
     layout.columnAvoidRects = rects;
   }
 
   function addAvoidRect(rects, cx, cz, w, d, name) {
     rects.push({ cx: cx, cz: cz, w: w, d: d, name: name || "" });
-  }
-
-  function addSegmentAvoidRect(rects, a, b, pad, name) {
-    rects.push({
-      cx: (a.x + b.x) / 2,
-      cz: (a.z + b.z) / 2,
-      w: Math.abs(b.x - a.x) + pad,
-      d: Math.abs(b.z - a.z) + pad,
-      name: name || ""
-    });
   }
 
   function pointInRect(x, z, rect, margin) {
@@ -6312,9 +6082,7 @@ if (mount) {
   }
 
   function isInsideQcRoom(layout, point) {
-    if (!point) {
-      return false;
-    }
+    if (!point) return false;
     return point.x > layout.qcX - layout.qcRoomW / 2 + 0.05 && point.x < layout.qcX + layout.qcRoomW / 2 - 0.05 && point.z > layout.qcZ - layout.qcRoomD / 2 + 0.05 && point.z < layout.qcZ + layout.qcRoomD / 2 - 0.05;
   }
 
@@ -6330,49 +6098,36 @@ if (mount) {
     transporters = [];
     animatedRobots = [];
     bottleneckMeshes = [];
+    sharedBottleneckMaterial = null;
     agvGroup = null;
     agvPath = [];
   }
 
   function disposeMaterialList(list) {
-    if (!list) {
-      return;
-    }
+    if (!list) return;
     for (var i = 0; i < list.length; i++) {
-      if (list[i] && list[i].dispose) {
-        list[i].dispose();
-      }
+      if (list[i] && list[i].dispose) list[i].dispose();
     }
   }
 
   function disposeObject(obj) {
-    if (!obj) {
-      return;
-    }
+    if (!obj) return;
     var geometries = new Set();
     var materials = new Set();
     obj.traverse(function (child) {
-      if (child.geometry && child.geometry.dispose) {
-        geometries.add(child.geometry);
-      }
+      if (child.geometry && child.geometry.dispose) geometries.add(child.geometry);
       if (child.material) {
         if (Array.isArray(child.material)) {
           for (var i = 0; i < child.material.length; i++) {
-            if (child.material[i] && child.material[i].dispose) {
-              materials.add(child.material[i]);
-            }
+            if (child.material[i] && child.material[i].dispose) materials.add(child.material[i]);
           }
         } else if (child.material.dispose) {
           materials.add(child.material);
         }
       }
     });
-    geometries.forEach(function (geom) {
-      geom.dispose();
-    });
-    materials.forEach(function (mat) {
-      mat.dispose();
-    });
+    geometries.forEach(function (geom) { geom.dispose(); });
+    materials.forEach(function (mat) { mat.dispose(); });
     while (obj.children && obj.children.length) {
       obj.remove(obj.children[0]);
     }
@@ -6388,9 +6143,7 @@ if (mount) {
   }
 
   function addHtmlLabel(text, position, kind) {
-    if (!labelLayer) {
-      return;
-    }
+    if (!labelLayer) return;
     var el = document.createElement("div");
     el.textContent = text;
     el.style.position = "absolute";
@@ -6419,14 +6172,12 @@ if (mount) {
   }
 
   function updateLabels() {
-    if (!labelLayer || !labelItems.length) {
-      return;
-    }
+    if (!labelLayer || !labelItems.length) return;
     var w = renderer.domElement.clientWidth || mount.clientWidth || 1;
     var h = renderer.domElement.clientHeight || mount.clientHeight || 1;
-    var shown = [], pass, i;
-    for (pass = 0; pass < 2; pass++) {
-      for (i = 0; i < labelItems.length; i++) {
+    var shown = [];
+    for (var pass = 0; pass < 2; pass++) {
+      for (var i = 0; i < labelItems.length; i++) {
         var item = labelItems[i];
         if ((pass === 0) !== (item.kind === "process")) continue;
         var p = item.position.clone();
@@ -6435,10 +6186,14 @@ if (mount) {
           item.el.style.display = "none";
           continue;
         }
-        var sx = (p.x * 0.5 + 0.5) * w, sy = (-p.y * 0.5 + 0.5) * h;
-        var lw = (item.el.textContent.length * 7.4) + 16, lh = 19;
-        var rx = sx - lw / 2, ry = sy - lh, overlap = false, k;
-        for (k = 0; k < shown.length; k++) {
+        var sx = (p.x * 0.5 + 0.5) * w;
+        var sy = (-p.y * 0.5 + 0.5) * h;
+        var lw = (item.el.textContent.length * 7.4) + 16;
+        var lh = 19;
+        var rx = sx - lw / 2;
+        var ry = sy - lh;
+        var overlap = false;
+        for (var k = 0; k < shown.length; k++) {
           var s = shown[k];
           if (!(rx + lw < s.x - 5 || rx > s.x + s.w + 5 || ry + lh < s.y - 3 || ry > s.y + s.h + 3)) {
             overlap = true;
@@ -6491,9 +6246,7 @@ if (mount) {
 
   function updateDefaultCameraPose() {
     var box = new THREE.Box3().setFromObject(equipmentGroup);
-    if (!isFinite(box.min.x) || !isFinite(box.max.x)) {
-      return;
-    }
+    if (!isFinite(box.min.x) || !isFinite(box.max.x)) return;
     var size = new THREE.Vector3();
     var center = new THREE.Vector3();
     box.getSize(size);
@@ -6600,29 +6353,9 @@ if (mount) {
     return result;
   }
 
-  function indexPointInPath(path, point) {
-    if (!path || !path.length || !point) {
-      return 0;
-    }
-    var best = 0;
-    var bestDist = Infinity;
-    for (var i = 0; i < path.length; i++) {
-      var d = distance2d(path[i], point);
-      if (d < bestDist) {
-        bestDist = d;
-        best = i;
-      }
-    }
-    return best;
-  }
-
   function pointAlongPath(path, distance) {
-    if (!path || path.length === 0) {
-      return new THREE.Vector3();
-    }
-    if (path.length === 1) {
-      return path[0].clone();
-    }
+    if (!path || path.length === 0) return new THREE.Vector3();
+    if (path.length === 1) return path[0].clone();
     var remaining = distance;
     for (var i = 0; i < path.length - 1; i++) {
       var a = path[i];
@@ -6639,9 +6372,7 @@ if (mount) {
 
   function pathLength(path) {
     var len = 0;
-    if (!path) {
-      return 0;
-    }
+    if (!path) return 0;
     for (var i = 0; i < path.length - 1; i++) {
       len += distance2d(path[i], path[i + 1]);
     }
@@ -6685,13 +6416,25 @@ if (mount) {
   function createBeamBetween(parent, a, b, thickness, mat) {
     var dir = new THREE.Vector3(b.x - a.x, b.y - a.y, b.z - a.z);
     var len = dir.length();
-    if (len < 0.01) {
-      return null;
-    }
+    if (len < 0.01) return null;
     dir.normalize();
     var mesh = new THREE.Mesh(boxGeometry(len, thickness, thickness), mat);
     mesh.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function createCylinderBetween(parent, a, b, radius, segments, mat) {
+    var dir = new THREE.Vector3(b.x - a.x, b.y - a.y, b.z - a.z);
+    var len = dir.length();
+    if (len < 0.01) return null;
+    dir.normalize();
+    var mesh = new THREE.Mesh(cylinderGeometry(radius, radius, len, segments || 10), mat);
+    mesh.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     parent.add(mesh);
