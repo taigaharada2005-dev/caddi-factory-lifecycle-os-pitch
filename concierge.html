@@ -1190,6 +1190,9 @@
           <option value="location">④ 場所が事業に合わない</option>
           <option value="nonstop">⑤ 既存ラインを止められない</option>
           <option value="automation">⑥ 自動化前提で作り直したい</option>
+          <option value="succession">⑦ 事業承継を機に工場を刷新したい</option>
+          <option value="bcp">⑧ BCP・生産拠点の分散が必要</option>
+          <option value="laborsaving">⑨ 賃上げ対応で省人化が急務</option>
         </select>
       </div>
 
@@ -1554,8 +1557,11 @@
     var hasRobot = t.keyEquipment.join("").indexOf("ロボット") >= 0 || t.note.indexOf("無人") >= 0 || t.note.indexOf("自動") >= 0;
     if (state.trigger === "regulation" && hasClean) s += 10;
     else if (state.trigger === "automation" && hasRobot) s += 10;
+    else if (state.trigger === "laborsaving" && hasRobot) s += 10;
     else if (state.trigger === "capacity" && t.volumeBand === "high") s += 8;
+    else if (state.trigger === "bcp" && t.buildMonths <= 10) s += 8;
     else if (state.trigger === "process") s += 6;
+    else if (state.trigger === "succession") s += 6;
     else s += 4;
     // 認証：クリーンルーム/GMP/HACCP を選ぶとクリーン系テンプレを優先
     if (hasClean && (state.certs.indexOf("clean") >= 0 || state.certs.indexOf("gmp") >= 0 || state.certs.indexOf("haccp") >= 0)) s += 8;
@@ -2189,31 +2195,59 @@
     bpxDrawDoor(s, "top", g.innerX + 236, g.outerY + 7, 28);
   }
 
+  // 設備種別ごとの概算電力(kW)。実際の型番までは分からなくても、受変電設備の容量算定と連動させるための目安値。
+  function bpxEquipPowerKw(item) {
+    var group = item.group || bpxFunctionGroup(item.name || "");
+    var name = (item.name || "") + " " + (item.eq || "");
+    if (bpxHas(name, ["炉", "熱処理", "乾燥", "殺菌", "オーブン"])) return 18;
+    if (bpxHas(name, ["プレス", "成形", "射出"])) return 22;
+    if (bpxHas(name, ["溶接", "ロボット"])) return 12;
+    if (group === "machining") return 15;
+    if (group === "inspection") return 4;
+    if (group === "packing") return 5;
+    return 8;
+  }
+
+  // 機器表・単線結線図(変圧器容量)の両方から参照する合計電力(kW)。機器台数が増えるほど受変電設備も連動して大きくなる。
+  function bpxComputeTotalKw(flow) {
+    var total = 0;
+    for (var i = 0; i < flow.length; i++) total += flow[i].side ? 3 : bpxEquipPowerKw(flow[i]);
+    return total;
+  }
+
   function bpxDrawEquipmentTable(s, x, y, w, flow, method) {
-    var titleH = 20, headH = 22, rowH = 25;
+    var titleH = 20, headH = 22;
+    // 表題欄(y=454)と重ならないよう、工程数が多い場合は行高を詰める(最大25px、最小14px)
+    var availH = 454 - y - titleH - headH - 4;
+    var rowH = Math.max(16, Math.min(25, Math.floor(availH / Math.max(1, flow.length))));
     var h = titleH + headH + flow.length * rowH;
-    var c1 = 34, c2 = 112, c3 = 40;
+    var c1 = 28, c2 = 92, c3 = 26, c4 = 28;
     s.push(bpxRect("bpx-table", x, y, w, h));
     s.push('<text class="bpx-table-title" x="' + bpxN(x + 8) + '" y="' + bpxN(y + 14) + '">機器表</text>');
     s.push(bpxRect("bpx-table-head", x, y + titleH, w, headH));
-    var colX = [x, x + c1, x + c1 + c2, x + c1 + c2 + c3, x + w];
+    var colX = [x, x + c1, x + c1 + c2, x + c1 + c2 + c3, x + c1 + c2 + c3 + c4, x + w];
     for (var i = 1; i < colX.length - 1; i++) s.push(bpxLine("bpx-table-line", colX[i], y + titleH, colX[i], y + h));
     s.push(bpxLine("bpx-table-line", x, y + titleH, x + w, y + titleH));
     s.push(bpxLine("bpx-table-line", x, y + titleH + headH, x + w, y + titleH + headH));
     s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 / 2) + '" y="' + bpxN(y + titleH + 15) + '" text-anchor="middle">番号</text>');
     s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 + 6) + '" y="' + bpxN(y + titleH + 15) + '">名称</text>');
     s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 + c2 + c3 / 2) + '" y="' + bpxN(y + titleH + 15) + '" text-anchor="middle">数量</text>');
-    s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 + c2 + c3 + 6) + '" y="' + bpxN(y + titleH + 15) + '">備考</text>');
+    s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 + c2 + c3 + c4 / 2) + '" y="' + bpxN(y + titleH + 15) + '" text-anchor="middle">kW</text>');
+    s.push('<text class="bpx-table-label" x="' + bpxN(x + c1 + c2 + c3 + c4 + 6) + '" y="' + bpxN(y + titleH + 15) + '">備考</text>');
+    var totalKw = 0;
     for (i = 0; i < flow.length; i++) {
       var yy = y + titleH + headH + i * rowH;
       var item = flow[i];
       var note = item.side === "receive" ? "受入" : (item.side === "ship" ? "出荷" : (method === "functional" ? bpxFunctionLabel(item.group) : (method === "line" ? "ライン脇" : "セル内")));
       if (item.clean) note = "清浄区画";
+      var itemKw = item.side ? 3 : bpxEquipPowerKw(item);
+      totalKw += itemKw;
       s.push(bpxLine("bpx-table-line", x, yy + rowH, x + w, yy + rowH));
       s.push('<text class="bpx-table-no" x="' + bpxN(x + c1 / 2) + '" y="' + bpxN(yy + 16) + '" text-anchor="middle">' + bpxCircled(item.no) + '</text>');
-      s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + 6) + '" y="' + bpxN(yy + 16) + '">' + bpxEsc(bpxClip(item.eq, 13)) + '</text>');
+      s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + 6) + '" y="' + bpxN(yy + 16) + '">' + bpxEsc(bpxClip(item.eq, 11)) + '</text>');
       s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + c2 + c3 / 2) + '" y="' + bpxN(yy + 16) + '" text-anchor="middle">1式</text>');
-      s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + c2 + c3 + 6) + '" y="' + bpxN(yy + 16) + '">' + bpxEsc(bpxClip(note, 8)) + '</text>');
+      s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + c2 + c3 + c4 / 2) + '" y="' + bpxN(yy + 16) + '" text-anchor="middle">' + itemKw + '</text>');
+      s.push('<text class="bpx-table-text" x="' + bpxN(x + c1 + c2 + c3 + c4 + 6) + '" y="' + bpxN(yy + 16) + '">' + bpxEsc(bpxClip(note, 6)) + '</text>');
     }
   }
 
@@ -2438,6 +2472,10 @@
     }
     var groupKeys = ["L-1", "L-2", "P-1"];
     var groupLabel = { "L-1": "動力盤 L-1（検査・プロセス系）", "L-2": "動力盤 L-2（受入・出荷系）", "P-1": "動力盤 P-1（組立・搬送系）" };
+    // 機器表の合計電力(kW)から変圧器容量を逆算する(力率0.85・将来余裕1.25倍を見込み、標準容量に切り上げ)
+    var totalKw = bpxComputeTotalKw(flow);
+    var requiredKva = Math.ceil((totalKw / 0.85) * 1.25);
+    var standardKva = [100, 150, 200, 300, 500, 750, 1000, 1500].find(function (v) { return v >= requiredKva; }) || 2000;
     var s = [];
     s.push('<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" class="bpx-svg" role="img" aria-label="単線結線図">');
     s.push(bpxRect("bpx-sheet-border", 10, 10, W - 20, H - 20));
@@ -2452,7 +2490,7 @@
     s.push('<text x="' + trunkX + '" y="' + (srcY + 4) + '" text-anchor="middle">高圧受電 6.6kV</text>');
     s.push('<line x1="' + trunkX + '" y1="' + (srcY + 14) + '" x2="' + trunkX + '" y2="' + (tfY - 14) + '"/>');
     s.push('<circle cx="' + trunkX + '" cy="' + tfY + '" r="16"/><circle cx="' + (trunkX + 9) + '" cy="' + tfY + '" r="16"/>');
-    s.push('<text x="' + (trunkX + 4) + '" y="' + (tfY + 30) + '" text-anchor="middle">変圧器 500kVA</text>');
+    s.push('<text x="' + (trunkX + 4) + '" y="' + (tfY + 30) + '" text-anchor="middle">変圧器 ' + standardKva + 'kVA（合計負荷' + totalKw + 'kW）</text>');
     s.push('<line x1="' + (trunkX + 4) + '" y1="' + (tfY + 16) + '" x2="' + (trunkX + 4) + '" y2="' + (mainY - 10) + '"/>');
     s.push('<rect x="' + (trunkX - 16) + '" y="' + (mainY - 10) + '" width="40" height="20" rx="2"/>');
     s.push('<text x="' + (trunkX + 4) + '" y="' + (mainY + 34) + '" text-anchor="middle">主幹遮断器 (MCCB)</text>');
@@ -3654,7 +3692,10 @@
     else if (has("新製品", "新しい製品")) { state.trigger = "process"; picks.push("きっかけ"); }
     else if (has("規制", "衛生", "gmp", "haccp")) { state.trigger = "regulation"; picks.push("きっかけ"); }
     else if (has("止め", "止まら", "供給責任")) { state.trigger = "nonstop"; picks.push("きっかけ"); }
-    else if (has("自動化", "無人", "省人")) { state.trigger = "automation"; picks.push("きっかけ"); }
+    else if (has("事業承継", "後継者", "跡継ぎ", "事業を継")) { state.trigger = "succession"; picks.push("きっかけ"); }
+    else if (has("bcp", "ＢＣＰ", "分散生産", "拠点分散", "リスク分散")) { state.trigger = "bcp"; picks.push("きっかけ"); }
+    else if (has("賃上げ", "人件費", "人手不足", "省人化")) { state.trigger = "laborsaving"; picks.push("きっかけ"); }
+    else if (has("自動化", "無人")) { state.trigger = "automation"; picks.push("きっかけ"); }
     // 立地
     if (has("東南アジア", "タイ", "ベトナム", "インドネシア")) { state.location = "sea"; picks.push("立地"); }
     else if (has("インド")) { state.location = "india"; picks.push("立地"); }
