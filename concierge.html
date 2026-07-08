@@ -716,6 +716,9 @@
 .bpx-room-utility {
   fill: var(--panel-deep);
 }
+.bpx-room-canteen {
+  fill: var(--accent-soft);
+}
 
 .bpx-room-label {
   fill: var(--ink);
@@ -1977,20 +1980,25 @@
     return g;
   }
 
-  function bpxDrawBaseRooms(s, g) {
+  function bpxDrawBaseRooms(s, g, staffInfo) {
+    var totalHC = (staffInfo && staffInfo.pyramid && staffInfo.pyramid.total) || null;
+    var mgmtHC = (staffInfo && staffInfo.pyramid) ? (staffInfo.pyramid.managers + staffInfo.pyramid.director + staffInfo.pyramid.admin) : null;
+    var officeSub = mgmtHC ? "管理・打合せ（管理部門" + mgmtHC + "名）" : "管理・打合せ";
+    var canteenSub = totalHC ? "同時" + Math.round(totalHC * 0.6) + "名収容" : "食事・休憩";
     s.push(bpxRect("bpx-building-fill", g.outerX, g.outerY, g.outerW, g.outerH));
     s.push(bpxRect("bpx-floor", g.innerX, g.innerY, g.innerW, g.innerH));
-    bpxDrawZone(s, "bpx-room-zone bpx-room-office", g.innerX, g.innerY, 176, g.topH, "事務所", "管理・打合せ");
+    bpxDrawZone(s, "bpx-room-zone bpx-room-office", g.innerX, g.innerY, 176, g.topH, "事務所", officeSub);
     bpxDrawZone(s, "bpx-room-zone bpx-room-quality", g.innerX + 176, g.innerY, 236, g.topH, "検査室", "恒温・品質保証");
     bpxDrawZone(s, "bpx-room-zone bpx-room-electric", g.innerX + 412, g.innerY, g.innerW - 412, g.topH, "電気室", "受変電・制御盤");
     bpxDrawZone(s, "bpx-room-zone bpx-room-side", g.receive.x, g.receive.y, g.receive.w, g.receive.h, "受入", "原材料");
     s.push(bpxRect("bpx-room-zone bpx-room-production", g.prodX, g.prodY, g.prodW, g.prodH));
     s.push('<text class="bpx-room-label" x="' + bpxN(g.prodX + 8) + '" y="' + bpxN(g.prodY + 14) + '">生産エリア</text>');
     bpxDrawZone(s, "bpx-room-zone bpx-room-side", g.ship.x, g.ship.y, g.ship.w, g.ship.h, "出荷", "完成品");
-    bpxDrawZone(s, "bpx-room-zone bpx-room-utility", g.innerX, g.innerY + g.innerH - g.bottomH, 154, g.bottomH, "部品倉庫", "棚・副資材");
-    bpxDrawZone(s, "bpx-room-zone bpx-room-utility", g.innerX + 154, g.innerY + g.innerH - g.bottomH, 160, g.bottomH, "更衣休憩", "");
-    s.push(bpxRect("bpx-ped-aisle", g.innerX + 326, g.innerY + g.innerH - g.bottomH + 8, g.innerW - 338, 20));
-    s.push('<text class="bpx-aisle-label" x="' + bpxN(g.innerX + 326 + (g.innerW - 338) / 2) + '" y="' + bpxN(g.innerY + g.innerH - g.bottomH + 22) + '" text-anchor="middle">歩行者通路</text>');
+    bpxDrawZone(s, "bpx-room-zone bpx-room-utility", g.innerX, g.innerY + g.innerH - g.bottomH, 110, g.bottomH, "部品倉庫", "棚・副資材");
+    bpxDrawZone(s, "bpx-room-zone bpx-room-utility", g.innerX + 110, g.innerY + g.innerH - g.bottomH, 108, g.bottomH, "更衣・ロッカー", "");
+    bpxDrawZone(s, "bpx-room-zone bpx-room-canteen", g.innerX + 218, g.innerY + g.innerH - g.bottomH, 110, g.bottomH, "食堂", canteenSub);
+    s.push(bpxRect("bpx-ped-aisle", g.innerX + 336, g.innerY + g.innerH - g.bottomH + 8, g.innerW - 348, 20));
+    s.push('<text class="bpx-aisle-label" x="' + bpxN(g.innerX + 336 + (g.innerW - 348) / 2) + '" y="' + bpxN(g.innerY + g.innerH - g.bottomH + 22) + '" text-anchor="middle">歩行者通路</text>');
     s.push(bpxRect("bpx-opening", g.innerX + g.innerW - 92, g.innerY + g.innerH - g.bottomH + 9, 72, 18));
     s.push('<text class="bpx-room-sub" x="' + bpxN(g.innerX + g.innerW - 56) + '" y="' + bpxN(g.innerY + g.innerH - g.bottomH + 23) + '" text-anchor="middle">将来開口</text>');
     s.push(bpxRect("bpx-wall-outer", g.outerX, g.outerY, g.outerW, g.outerH));
@@ -2495,9 +2503,14 @@
     s.push('<text class="bpx-sheet-label" x="42" y="42">' + bpxEsc(meta.drawing) + '</text>');
     s.push('<text class="bpx-sheet-sub" x="42" y="59">' + bpxEsc(meta.note) + ' / 通り芯・柱・寸法・機器番号照合図</text>');
 
+    // 組織ピラミッド(推奨案から)が既に計算済みならそれを使い、無ければ工程数からの概算にフォールバック
+    var staffPyramid = (typeof window !== "undefined" && window.CaddiOrgPyramid) ? window.CaddiOrgPyramid
+      : computeStaffingPyramid(Math.round(flow.length * 3.2), method);
+    var staffInfo = { pyramid: staffPyramid };
+
     bpxDrawDocksAndSite(s, g);
     bpxDrawDimensions(s, g, xBays, yBays);
-    bpxDrawBaseRooms(s, g);
+    bpxDrawBaseRooms(s, g, staffInfo);
     bpxDrawGrid(s, g, xBays, yBays);
     bpxDrawDoors(s, g);
 
