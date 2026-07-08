@@ -5036,11 +5036,21 @@ if (mount) {
     equipmentGroup.add(group);
   }
 
+  // 生産量から必要な機械台数を導出：1工程あたりの並列機械数(表示上限3台、実数は台数ラベルに表示)
+  function machinesPerStation(prodMethod) {
+    var pyramid = safeOrgPyramid();
+    if (!pyramid) return 1;
+    var operatorsPerMachine = prodMethod === "line" ? 2.6 : (prodMethod === "functional" ? 1.9 : 1.6);
+    var estimated = Math.round(pyramid.operators / Math.max(3, operatorsPerMachine * 3) );
+    return Math.max(1, Math.min(3, estimated));
+  }
+
   function createStations(layout, flow, template, mats) {
     var cleanMap = {};
     var cleanZones = Array.isArray(template.cleanZones) ? template.cleanZones : [];
     for (var i = 0; i < cleanZones.length; i++) cleanMap[String(cleanZones[i])] = true;
     var stationNameCounts = Object.create(null);
+    var machineCount = machinesPerStation(layout.prodMethod);
     for (i = 0; i < flow.length; i++) {
       var name = flow[i];
       var pos = layout.processPositions[i];
@@ -5053,10 +5063,25 @@ if (mount) {
       var stationKey = "station:" + nameKey + ":" + seen;
       if (clean && kind !== "receiving" && kind !== "shipping" && kind !== "inspection") createCleanEnclosure(pos, mats, stationKey + ":clean");
       var stationGroup = createStation(name, pos, mats, isBottleneck, kind, stationKey);
+      var isDup = kind !== "receiving" && kind !== "shipping" && kind !== "inspection";
+      var thisMachineCount = isDup ? machineCount : 1;
+      if (isDup && thisMachineCount > 1) createParallelMachines(name, pos, mats, kind, stationKey, thisMachineCount, layout.prodMethod);
       if (kind !== "receiving" && kind !== "shipping") createWipBuffer(pos, i, mats, layout, stationKey + ":wip");
-      addHtmlLabel(name, v3(0, clean ? 2.65 : 2.18, 0), "process", stationGroup);
+      var labelText = thisMachineCount > 1 ? name + " ×" + thisMachineCount : name;
+      addHtmlLabel(labelText, v3(0, clean ? 2.65 : 2.18, 0), "process", stationGroup);
     }
-    createWorkers(layout, flow, mats);
+    createWorkers(layout, flow, mats, machineCount);
+  }
+
+  // 同一工程の追加機械を、元の設備の脇にスケールダウンして配置(搬送経路・ラベル・ボトルネック判定には触れない、純粋に視覚密度の追加)
+  function createParallelMachines(name, pos, mats, kind, stationKey, count, prodMethod) {
+    var offsets = prodMethod === "line" ? [[0, -0.95], [0, 0.95]] : [[-0.85, -0.7], [0.85, -0.7]];
+    for (var k = 1; k < count && k - 1 < offsets.length; k++) {
+      var off = offsets[k - 1];
+      var dupPos = { x: pos.x + off[0], z: pos.z + off[1], ry: pos.ry };
+      var dupGroup = createStation(name, dupPos, mats, false, kind, stationKey + ":dup" + k);
+      dupGroup.scale.setScalar(0.72);
+    }
   }
 
   function getStationKind(name, productType, index) {
