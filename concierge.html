@@ -4418,7 +4418,7 @@ if (mount) {
       lineEnd: qcX - 2.05,
       bayX: 6,
       bayZ: 5,
-      wallHeight: 1.18,
+      wallHeight: 4.0, // 柱(columnHeight=4.2)・屋根(roofY=4.35)に届く高さに(旧1.18mは腰高で、天井が宙に浮いて見える致命的な不整合だった)
       columnHeight: 4.2,
       roofY: 4.35,
       qcRoomW: 4.35,
@@ -4984,8 +4984,8 @@ if (mount) {
     addBox(shellGroup, layout.hallW, 0.16, 0.28, mats.wallDark, 0, layout.wallHeight + 0.08, -layout.halfD);
     addBox(shellGroup, layout.hallW, 0.16, 0.28, mats.wallDark, 0, layout.wallHeight + 0.08, layout.halfD);
     for (var x = layout.leftX + 1.5; x <= layout.rightX - 1.5; x += 3.0) {
-      addBox(shellGroup, 0.11, 2.05, 0.12, mats.wallDark, x, 1.025, -layout.halfD + 0.05);
-      addBox(shellGroup, 0.11, 2.05, 0.12, mats.wallDark, x, 1.025, layout.halfD - 0.05);
+      addBox(shellGroup, 0.11, layout.wallHeight, 0.12, mats.wallDark, x, layout.wallHeight / 2, -layout.halfD + 0.05);
+      addBox(shellGroup, 0.11, layout.wallHeight, 0.12, mats.wallDark, x, layout.wallHeight / 2, layout.halfD - 0.05);
     }
     createGableWindows(layout, mats);
     createEntranceDoor(layout, mats);
