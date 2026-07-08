@@ -3888,6 +3888,7 @@ if (mount) {
   var ambientLight = null;
   var baseHemiIntensity = 0.34;
   var baseAmbientIntensity = 0.14;
+  var skyTextureCache = {}; // モジュール初期化直後にapplyTheme()が同期呼び出しされるため、ここで先に初期化しておく
   var shellVisible = true;
   var geometryCache = Object.create(null);
   var activeMaterials = [];
@@ -4197,7 +4198,6 @@ if (mount) {
 
   // 空のグラデーション背景(実行時生成のCanvasTexture。外部画像ではないので制約に反しない)。
   // 単色の背景だと、敷地の地面がどこまで拡張しても水平線が不自然に途切れて見える。
-  var skyTextureCache = {};
   function createSkyGradientTexture(dark) {
     var key = dark ? "dark" : "light";
     if (skyTextureCache[key]) return skyTextureCache[key];
