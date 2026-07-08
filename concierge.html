@@ -4263,7 +4263,12 @@ if (mount) {
     var staffPyramidForHall = safeOrgPyramid();
     var staffHallAdd = staffPyramidForHall && staffPyramidForHall.total > 40 ? Math.min(6, (staffPyramidForHall.total - 40) * 0.08) : 0;
     var hallW = Math.max(hallWBase, 31 + n * (prodMethod === "line" ? 1.65 : 1.85) + variant * 1.1) + staffHallAdd;
-    var hallD = prodMethod === "functional" ? 26.4 : (prodMethod === "line" ? 24.8 : 25.6);
+    // 目標生産量→必要機械台数を"先に"決め、その実寸(スケールダウンしない)を収める分だけ建屋奥行きを広げる
+    // (動線に合わせて機械を詰め込むのではなく、機械の必要数に合わせて建屋を広げる)
+    var machineCount = machinesPerStation(prodMethod);
+    var hallDBase = prodMethod === "functional" ? 26.4 : (prodMethod === "line" ? 24.8 : 25.6);
+    var machineDepthEach = 1.9; // 機械1台分の奥行き+離隔(実寸)
+    var hallD = hallDBase + (machineCount > 1 ? (machineCount - 1) * machineDepthEach : 0);
     var halfD = hallD / 2;
     var leftX = -hallW / 2;
     var rightX = hallW / 2;
@@ -4283,6 +4288,7 @@ if (mount) {
       productType: productType,
       productTransportMode: resolveTransportMode(template),
       transportMode: prodMethod === "line" ? "continuous" : "discrete",
+      machineCount: machineCount,
       cleanZones: cleanZones || [],
       hallW: hallW,
       hallD: hallD,
@@ -5050,7 +5056,7 @@ if (mount) {
     var cleanZones = Array.isArray(template.cleanZones) ? template.cleanZones : [];
     for (var i = 0; i < cleanZones.length; i++) cleanMap[String(cleanZones[i])] = true;
     var stationNameCounts = Object.create(null);
-    var machineCount = machinesPerStation(layout.prodMethod);
+    var machineCount = layout.machineCount || 1;
     for (i = 0; i < flow.length; i++) {
       var name = flow[i];
       var pos = layout.processPositions[i];
@@ -5065,7 +5071,7 @@ if (mount) {
       var stationGroup = createStation(name, pos, mats, isBottleneck, kind, stationKey);
       var isDup = kind !== "receiving" && kind !== "shipping" && kind !== "inspection";
       var thisMachineCount = isDup ? machineCount : 1;
-      if (isDup && thisMachineCount > 1) createParallelMachines(name, pos, mats, kind, stationKey, thisMachineCount, layout.prodMethod);
+      if (isDup && thisMachineCount > 1) createParallelMachines(name, pos, mats, kind, stationKey, thisMachineCount, layout);
       if (kind !== "receiving" && kind !== "shipping") createWipBuffer(pos, i, mats, layout, stationKey + ":wip");
       var labelText = thisMachineCount > 1 ? name + " ×" + thisMachineCount : name;
       addHtmlLabel(labelText, v3(0, clean ? 2.65 : 2.18, 0), "process", stationGroup);
@@ -5073,14 +5079,15 @@ if (mount) {
     createWorkers(layout, flow, mats, machineCount);
   }
 
-  // 同一工程の追加機械を、元の設備の脇にスケールダウンして配置(搬送経路・ラベル・ボトルネック判定には触れない、純粋に視覚密度の追加)
-  function createParallelMachines(name, pos, mats, kind, stationKey, count, prodMethod) {
-    var offsets = prodMethod === "line" ? [[0, -0.95], [0, 0.95]] : [[-0.85, -0.7], [0.85, -0.7]];
-    for (var k = 1; k < count && k - 1 < offsets.length; k++) {
-      var off = offsets[k - 1];
-      var dupPos = { x: pos.x + off[0], z: pos.z + off[1], ry: pos.ry };
-      var dupGroup = createStation(name, dupPos, mats, false, kind, stationKey + ":dup" + k);
-      dupGroup.scale.setScalar(0.72);
+  // 目標生産量から決めた必要機械台数ぶんを"実寸のまま"配置する。搬送経路・ラベル・ボトルネック判定は主機のみ参照するため変更なし。
+  // 建屋の奥行き(hallD)は createLayout 側で既にこの台数を収める分だけ広げてあるので、主機の背後(メイン通路と反対側)へ実寸間隔で並べるだけで良い。
+  function createParallelMachines(name, pos, mats, kind, stationKey, count, layout) {
+    var machineDepthEach = 1.9; // createLayoutのhallD拡張と揃える実寸間隔
+    var dir = pos.z >= layout.mainAisleZ ? -1 : 1; // メイン通路から遠ざかる向きへ並べる
+    for (var k = 1; k < count; k++) {
+      var dupZ = clamp(pos.z + dir * machineDepthEach * k, -layout.halfD + 1.6, layout.halfD - 1.6);
+      var dupPos = { x: pos.x, z: dupZ, ry: pos.ry };
+      createStation(name, dupPos, mats, false, kind, stationKey + ":dup" + k);
     }
   }
 
