@@ -3883,6 +3883,8 @@ if (mount) {
   var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   var controls;
   var equipmentGroup = new THREE.Group();
+  var shellGroup = null; // 外壁・屋根(建屋の外側)専用グループ。ボタンで表示/非表示を切替できる
+  var shellVisible = true;
   var geometryCache = Object.create(null);
   var activeMaterials = [];
   var labelLayer;
@@ -4155,11 +4157,17 @@ if (mount) {
       resetMovingProducts();
     });
     buttons.reset = createPanelButton("Reset View", function () { fitCameraToFactory(true); });
+    buttons.shell = createPanelButton("外壁を隠す", function () {
+      shellVisible = !shellVisible;
+      if (shellGroup) shellGroup.visible = shellVisible;
+      buttons.shell.textContent = shellVisible ? "外壁を隠す" : "外壁を表示";
+    });
 
     toolbar.appendChild(buttons.generate);
     toolbar.appendChild(buttons.simulate);
     toolbar.appendChild(buttons.optimize);
     toolbar.appendChild(buttons.reset);
+    toolbar.appendChild(buttons.shell);
   }
 
   function createPanelButton(text, handler) {
@@ -4198,7 +4206,7 @@ if (mount) {
       legendPanel.style.border = dark ? "1px solid rgba(178, 196, 220, 0.2)" : "1px solid rgba(20, 32, 48, 0.12)";
       legendPanel.style.color = dark ? "#dfe8f2" : "#2c363d";
     }
-    var btnList = [buttons.generate, buttons.simulate, buttons.optimize, buttons.reset];
+    var btnList = [buttons.generate, buttons.simulate, buttons.optimize, buttons.reset, buttons.shell];
     for (var i = 0; i < btnList.length; i++) {
       if (btnList[i]) {
         btnList[i].style.background = dark ? "rgba(35, 47, 62, 0.95)" : "rgba(247, 250, 252, 0.98)";
@@ -4954,17 +4962,21 @@ if (mount) {
   }
 
   function createBuildingShell(layout, mats) {
+    shellGroup = new THREE.Group();
+    shellGroup.name = "buildingShell";
+    equipmentGroup.add(shellGroup);
     createSideWallWithOpening(layout.leftX, layout.mainAisleZ, 3.35, true, layout, mats);
     createSideWallWithOpening(layout.rightX, layout.mainAisleZ, 3.35, false, layout, mats);
-    addBox(equipmentGroup, layout.hallW, layout.wallHeight, 0.18, mats.wall, 0, layout.wallHeight / 2, -layout.halfD);
-    addBox(equipmentGroup, layout.hallW, layout.wallHeight, 0.18, mats.wall, 0, layout.wallHeight / 2, layout.halfD);
-    addBox(equipmentGroup, layout.hallW, 0.16, 0.28, mats.wallDark, 0, layout.wallHeight + 0.08, -layout.halfD);
-    addBox(equipmentGroup, layout.hallW, 0.16, 0.28, mats.wallDark, 0, layout.wallHeight + 0.08, layout.halfD);
+    addBox(shellGroup, layout.hallW, layout.wallHeight, 0.18, mats.wall, 0, layout.wallHeight / 2, -layout.halfD);
+    addBox(shellGroup, layout.hallW, layout.wallHeight, 0.18, mats.wall, 0, layout.wallHeight / 2, layout.halfD);
+    addBox(shellGroup, layout.hallW, 0.16, 0.28, mats.wallDark, 0, layout.wallHeight + 0.08, -layout.halfD);
+    addBox(shellGroup, layout.hallW, 0.16, 0.28, mats.wallDark, 0, layout.wallHeight + 0.08, layout.halfD);
     for (var x = layout.leftX + 1.5; x <= layout.rightX - 1.5; x += 3.0) {
-      addBox(equipmentGroup, 0.11, 2.05, 0.12, mats.wallDark, x, 1.025, -layout.halfD + 0.05);
-      addBox(equipmentGroup, 0.11, 2.05, 0.12, mats.wallDark, x, 1.025, layout.halfD - 0.05);
+      addBox(shellGroup, 0.11, 2.05, 0.12, mats.wallDark, x, 1.025, -layout.halfD + 0.05);
+      addBox(shellGroup, 0.11, 2.05, 0.12, mats.wallDark, x, 1.025, layout.halfD - 0.05);
     }
     createColumnsAndRoof(layout, mats);
+    shellGroup.visible = shellVisible;
   }
 
   function createSideWallWithOpening(x, doorZ, doorWidth, isLeft, layout, mats) {
@@ -4973,14 +4985,14 @@ if (mount) {
     var aEnd = doorZ - doorWidth / 2;
     var bStart = doorZ + doorWidth / 2;
     var wallT = 0.18;
-    if (aEnd > zMin) addBox(equipmentGroup, wallT, layout.wallHeight, aEnd - zMin, mats.wall, x, layout.wallHeight / 2, (zMin + aEnd) / 2);
-    if (zMax > bStart) addBox(equipmentGroup, wallT, layout.wallHeight, zMax - bStart, mats.wall, x, layout.wallHeight / 2, (bStart + zMax) / 2);
-    addBox(equipmentGroup, 0.28, 2.3, 0.16, mats.wallDark, x, 1.15, aEnd);
-    addBox(equipmentGroup, 0.28, 2.3, 0.16, mats.wallDark, x, 1.15, bStart);
-    addBox(equipmentGroup, 0.3, 0.25, doorWidth + 0.42, mats.wallDark, x, 2.28, doorZ);
-    addBox(equipmentGroup, 0.1, 0.48, doorWidth * 0.82, mats.dockDoor, x + (isLeft ? -0.06 : 0.06), 1.75, doorZ);
-    addBox(equipmentGroup, 0.16, 0.72, 0.14, mats.dockBumper, x + (isLeft ? 0.25 : -0.25), 0.36, doorZ - doorWidth * 0.37);
-    addBox(equipmentGroup, 0.16, 0.72, 0.14, mats.dockBumper, x + (isLeft ? 0.25 : -0.25), 0.36, doorZ + doorWidth * 0.37);
+    if (aEnd > zMin) addBox(shellGroup, wallT, layout.wallHeight, aEnd - zMin, mats.wall, x, layout.wallHeight / 2, (zMin + aEnd) / 2);
+    if (zMax > bStart) addBox(shellGroup, wallT, layout.wallHeight, zMax - bStart, mats.wall, x, layout.wallHeight / 2, (bStart + zMax) / 2);
+    addBox(shellGroup, 0.28, 2.3, 0.16, mats.wallDark, x, 1.15, aEnd);
+    addBox(shellGroup, 0.28, 2.3, 0.16, mats.wallDark, x, 1.15, bStart);
+    addBox(shellGroup, 0.3, 0.25, doorWidth + 0.42, mats.wallDark, x, 2.28, doorZ);
+    addBox(shellGroup, 0.1, 0.48, doorWidth * 0.82, mats.dockDoor, x + (isLeft ? -0.06 : 0.06), 1.75, doorZ);
+    addBox(shellGroup, 0.16, 0.72, 0.14, mats.dockBumper, x + (isLeft ? 0.25 : -0.25), 0.36, doorZ - doorWidth * 0.37);
+    addBox(shellGroup, 0.16, 0.72, 0.14, mats.dockBumper, x + (isLeft ? 0.25 : -0.25), 0.36, doorZ + doorWidth * 0.37);
   }
 
   function createColumnsAndRoof(layout, mats) {
@@ -4990,13 +5002,13 @@ if (mount) {
     for (var z = -layout.halfD + 2.6; z <= layout.halfD - 2.4; z += layout.bayZ) zs.push(z);
     for (var i = 0; i < xs.length; i++) for (var j = 0; j < zs.length; j++) if (!isColumnBlocked(xs[i], zs[j], layout)) createColumn(xs[i], zs[j], layout, mats);
     for (i = 0; i < zs.length; i++) {
-      addBox(equipmentGroup, layout.hallW - 1.1, 0.1, 0.12, mats.roofBeam, 0, layout.roofY, zs[i]).castShadow = false;
+      addBox(shellGroup, layout.hallW - 1.1, 0.1, 0.12, mats.roofBeam, 0, layout.roofY, zs[i]).castShadow = false;
       if (i % 2 === 0) {
-        createBeamBetween(equipmentGroup, v3(layout.leftX + 1.2, layout.roofY - 0.08, zs[i]), v3(0, layout.roofY + 0.62, zs[i]), 0.08, mats.roofBeam);
-        createBeamBetween(equipmentGroup, v3(0, layout.roofY + 0.62, zs[i]), v3(layout.rightX - 1.2, layout.roofY - 0.08, zs[i]), 0.08, mats.roofBeam);
+        createBeamBetween(shellGroup, v3(layout.leftX + 1.2, layout.roofY - 0.08, zs[i]), v3(0, layout.roofY + 0.62, zs[i]), 0.08, mats.roofBeam);
+        createBeamBetween(shellGroup, v3(0, layout.roofY + 0.62, zs[i]), v3(layout.rightX - 1.2, layout.roofY - 0.08, zs[i]), 0.08, mats.roofBeam);
       }
     }
-    for (i = 0; i < xs.length; i++) addBox(equipmentGroup, 0.1, 0.1, layout.hallD - 1.1, mats.roofBeam, xs[i], layout.roofY + 0.04, 0).castShadow = false;
+    for (i = 0; i < xs.length; i++) addBox(shellGroup, 0.1, 0.1, layout.hallD - 1.1, mats.roofBeam, xs[i], layout.roofY + 0.04, 0).castShadow = false;
     createHighBayLights(layout, xs, zs, mats);
   }
 
@@ -5010,12 +5022,13 @@ if (mount) {
     for (var i = 0; i < fixtureXs.length; i++) {
       for (var j = 0; j < fixtureZs.length; j++) {
         var x = fixtureXs[i], z = fixtureZs[j], y = layout.roofY - 0.32;
-        addCylinder(equipmentGroup, 0.02, 0.02, 0.22, 6, mats.highBayHousing, x, y + 0.16, z).castShadow = false;
-        var shade = addCylinder(equipmentGroup, 0.42, 0.3, 0.14, 16, mats.highBayHousing, x, y, z);
+        addCylinder(shellGroup, 0.02, 0.02, 0.22, 6, mats.highBayHousing, x, y + 0.16, z).castShadow = false;
+        var shade = addCylinder(shellGroup, 0.42, 0.3, 0.14, 16, mats.highBayHousing, x, y, z);
         shade.castShadow = false;
-        var lens = addCylinder(equipmentGroup, 0.36, 0.36, 0.02, 16, mats.highBayLight, x, y - 0.075, z);
+        var lens = addCylinder(shellGroup, 0.36, 0.36, 0.02, 16, mats.highBayLight, x, y - 0.075, z);
         lens.castShadow = false;
         lens.receiveShadow = false;
+        // 実際の光源(PointLight)は外壁・屋根を隠しても室内が暗くならないよう、shellGroupではなくequipmentGroup直下に置く
         if (placed < lightBudget && (i + j) % 3 === 0) {
           var pl = new THREE.PointLight(0xfff3d8, 5.5, 9, 2);
           pl.position.set(x, y - 0.2, z);
