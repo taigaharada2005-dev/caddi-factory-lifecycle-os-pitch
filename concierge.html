@@ -4471,6 +4471,9 @@ if (mount) {
       column: mat(dark ? 0x68727c : 0xaeb7c0, 0.48, 0.38),
       roofBeam: mat(dark ? 0x3d4650 : 0x87929d, 0.5, 0.54),
       roofPanel: mat(dark ? 0x2d353d : 0x6b7882, 0.62, 0.32),
+      ventFanBody: mat(dark ? 0x545e66 : 0x9aa4ac, 0.55, 0.42),
+      ventFanBlade: mat(dark ? 0x3a4148 : 0x717c85, 0.4, 0.5),
+      entranceDoor: mat(dark ? 0x2f4a5c : 0x3f6b85, 0.45, 0.18),
       dockDoor: mat(dark ? 0x1d252d : 0x6f7b86, 0.64, 0.16),
       dockBumper: mat(0x171d22, 0.78, 0.02),
       conveyorBelt: mat(0x222b34, 0.58, 0.18),
@@ -4976,8 +4979,49 @@ if (mount) {
       addBox(shellGroup, 0.11, 2.05, 0.12, mats.wallDark, x, 1.025, -layout.halfD + 0.05);
       addBox(shellGroup, 0.11, 2.05, 0.12, mats.wallDark, x, 1.025, layout.halfD - 0.05);
     }
+    createGableWindows(layout, mats);
+    createEntranceDoor(layout, mats);
     createColumnsAndRoof(layout, mats);
+    createRoofVentFans(layout, mats);
     shellGroup.visible = shellVisible;
+  }
+
+  // 妻壁(前後)の窓帯。既存の縦桟(バットン)の間に高窓を並べ、採光のある工場外観にする。
+  function createGableWindows(layout, mats) {
+    var winY = layout.wallHeight - 0.75, winH = 0.95;
+    for (var x = layout.leftX + 3.0; x <= layout.rightX - 3.0; x += 3.0) {
+      addBox(shellGroup, 1.7, winH, 0.03, mats.windowGlass, x, winY, -layout.halfD + 0.1).castShadow = false;
+      addBox(shellGroup, 1.7, winH, 0.03, mats.windowGlass, x, winY, layout.halfD - 0.1).castShadow = false;
+    }
+  }
+
+  // 通用口(人が出入りする通常サイズのドア)。荷捌き用の大きなドックドアとは別に、事務所側の妻壁に設置する。
+  function createEntranceDoor(layout, mats) {
+    var x = layout.leftX + 4.2, z = layout.halfD - 0.09, doorW = 0.95, doorH = 2.05;
+    addBox(shellGroup, doorW + 0.24, doorH + 0.2, 0.1, mats.wallDark, x, doorH / 2 + 0.1, z);
+    var door = addBox(shellGroup, doorW, doorH, 0.06, mats.entranceDoor, x, doorH / 2, z + 0.01);
+    door.castShadow = false;
+    addBox(shellGroup, 0.05, 0.05, 0.05, mats.wallDark, x + doorW / 2 - 0.12, doorH / 2, z + 0.045).castShadow = false;
+    addBox(shellGroup, 0.5, 0.3, 0.03, mats.windowGlass, x, doorH - 0.35, z + 0.035).castShadow = false;
+  }
+
+  // 屋根の換気扇(排気ファン)。切妻の棟に沿って数台並べる、実際の工場の屋根によくある設備。
+  function createRoofVentFans(layout, mats) {
+    var y = layout.roofY + 0.86;
+    var count = Math.max(2, Math.min(5, Math.round(layout.hallW / 12)));
+    for (var i = 0; i < count; i++) {
+      var x = layout.leftX + (layout.hallW * (i + 0.5)) / count;
+      var base = addCylinder(shellGroup, 0.34, 0.36, 0.16, 12, mats.ventFanBody, x, y, 0);
+      base.castShadow = false;
+      var grille = addCylinder(shellGroup, 0.3, 0.3, 0.03, 16, mats.ventFanBlade, x, y + 0.09, 0);
+      grille.castShadow = false;
+      for (var b = 0; b < 4; b++) {
+        var blade = addBox(shellGroup, 0.26, 0.02, 0.06, mats.ventFanBlade, x, y + 0.1, 0);
+        blade.rotation.y = (Math.PI / 4) * b;
+        blade.castShadow = false;
+      }
+      addCylinder(shellGroup, 0.06, 0.06, 0.14, 8, mats.ventFanBody, x, y - 0.15, 0).castShadow = false;
+    }
   }
 
   function createSideWallWithOpening(x, doorZ, doorWidth, isLeft, layout, mats) {
