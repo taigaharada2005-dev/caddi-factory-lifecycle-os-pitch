@@ -4274,13 +4274,19 @@ if (mount) {
   }
 
   function createLayout(flow, cleanZones, template, prodMethod) {
-    var n = Math.max(3, Math.min(9, flow.length));
+    // 工程数の上限をここだけ絞ると、位置決め関数群(createLineProcessPositions等)は
+    // flow.lengthをそのまま使うため、建屋サイズだけが工程数に足りず機械が重なる不整合が起きる。
+    // 拡張済みテンプレート(最大14工程)を安全に収めるため上限を16に引き上げる。
+    var n = Math.max(3, Math.min(16, flow.length));
     var productType = getTemplateProductType(template);
     var variant = optimizedLayout ? 0 : (layoutVariant % 3);
-    var hallWBase = prodMethod === "functional" ? 45 : (prodMethod === "line" ? 43 : 44);
+    // 「工場を建てる人は無駄なスペースを作らない」という指摘を受け、根拠の薄い余裕を詰める:
+    // 主通路はフォークリフト通行を考慮しても2.3〜2.6mで十分(旧: 2.75〜3.05m)。
+    // 建屋幅の下限も、QC室/事務所/ドック等の固定フットプリントを圧迫しない範囲で約9%タイトに。
+    var hallWBase = prodMethod === "functional" ? 41 : (prodMethod === "line" ? 39 : 40);
     var staffPyramidForHall = safeOrgPyramid();
     var staffHallAdd = staffPyramidForHall && staffPyramidForHall.total > 40 ? Math.min(6, (staffPyramidForHall.total - 40) * 0.08) : 0;
-    var hallW = Math.max(hallWBase, 31 + n * (prodMethod === "line" ? 1.65 : 1.85) + variant * 1.1) + staffHallAdd;
+    var hallW = Math.max(hallWBase, 31 + n * (prodMethod === "line" ? 1.5 : 1.7) + variant * 1.1) + staffHallAdd;
     // 目標生産量→必要機械台数を"先に"決め、その実寸(スケールダウンしない)を収める分だけ建屋奥行きを広げる
     // (動線に合わせて機械を詰め込むのではなく、機械の必要数に合わせて建屋を広げる)
     var machineCount = machinesPerStation(prodMethod);
@@ -4315,7 +4321,7 @@ if (mount) {
       leftX: leftX,
       rightX: rightX,
       mainAisleZ: mainAisleZ,
-      mainAisleWidth: optimizedLayout ? 2.75 : 3.05,
+      mainAisleWidth: optimizedLayout ? 2.3 : 2.6,
       lineZ: lineZ,
       packZ: lineZ,
       qcZ: lineZ,
