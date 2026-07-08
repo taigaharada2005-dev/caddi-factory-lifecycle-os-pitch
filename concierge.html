@@ -1444,27 +1444,27 @@
 
   var TEMPLATES = [
     { id:"FT-011", name:"精密切削部品 中量産ライン", productType:"precision-machined", volumeBand:"mid", toleranceClass:"ultra-precision",
-      processFlow:["受入","粗加工","精密切削","バリ取り","洗浄","三次元検査","出荷"],
+      processFlow:["受入検査","粗加工","応力除去","精密切削","バリ取り","中間洗浄","三次元検査","外観検査","防錆処理","梱包","出荷"],
       cleanZones:[], keyEquipment:["5軸マシニングセンタ","CNC旋盤","自動洗浄機","三次元測定機"],
       capexOku:19, buildMonths:12, unitCostIndex:94, rampUpMonths:4, networkFactories:38, note:"多品種中量産に強い" },
     { id:"FT-024", name:"EV電池セル 大量生産ドライルーム", productType:"ev-battery-cell", volumeBand:"high", toleranceClass:"precision",
-      processFlow:["材料受入","混練","塗工","乾燥","プレス","巻回","注液","化成","検査"],
-      cleanZones:["塗工","乾燥","プレス","巻回","注液","化成"], keyEquipment:["電極塗工機","ロールプレス","巻回機","注液装置","化成設備"],
+      processFlow:["材料受入","秤量・混練","塗工","乾燥","プレス","スリット","巻回","タブ溶接","缶入れ","注液","封止","化成","エージング","検査"],
+      cleanZones:["塗工","乾燥","プレス","スリット","巻回","タブ溶接","缶入れ","注液","封止","化成"], keyEquipment:["電極塗工機","ロールプレス","巻回機","注液装置","化成設備"],
       capexOku:620, buildMonths:26, unitCostIndex:91, rampUpMonths:9, networkFactories:14, note:"低露点管理を重視" },
     { id:"FT-037", name:"電子機器組立 高効率SMTライン", productType:"electronic-assembly", volumeBand:"high", toleranceClass:"precision",
-      processFlow:["基板受入","印刷","部品実装","リフロー","外観検査","機能検査","梱包"],
-      cleanZones:["印刷","部品実装","リフロー","外観検査"], keyEquipment:["スクリーン印刷機","高速マウンタ","リフロー炉","AOI検査装置"],
+      processFlow:["基板受入検査","はんだ印刷","部品実装","リフロー","AOI外観検査","洗浄","機能検査","ラベリング","梱包","出荷"],
+      cleanZones:["はんだ印刷","部品実装","リフロー","AOI外観検査"], keyEquipment:["スクリーン印刷機","高速マウンタ","リフロー炉","AOI検査装置"],
       capexOku:42, buildMonths:10, unitCostIndex:88, rampUpMonths:3, networkFactories:46, note:"実装替え時間を短縮" },
     { id:"FT-052", name:"食品無菌充填 高衛生ライン", productType:"food-aseptic", volumeBand:"high", toleranceClass:"general",
-      processFlow:["原料受入","調合","殺菌","無菌充填","密封","金属検査","箱詰め","出荷"],
-      cleanZones:["殺菌","無菌充填","密封"], keyEquipment:["UHT殺菌機","無菌充填機","CIP/SIP設備","金属検出機"],
+      processFlow:["原料受入検査","前処理・洗浄","調合","均質化","殺菌","冷却","無菌充填","密封","賞味期限印字","金属検査","重量検査","箱詰め","パレタイズ","出荷"],
+      cleanZones:["殺菌","冷却","無菌充填","密封"], keyEquipment:["UHT殺菌機","無菌充填機","CIP/SIP設備","金属検出機"],
       capexOku:95, buildMonths:18, unitCostIndex:97, rampUpMonths:6, networkFactories:21, note:"衛生区画の分離設計" },
     { id:"FT-068", name:"板金筐体 少中量フレキシブルライン", productType:"sheet-metal", volumeBand:"low", toleranceClass:"general",
-      processFlow:["材料受入","レーザー切断","曲げ","溶接","表面処理","検査","出荷"],
+      processFlow:["材料受入検査","ネスティング","レーザー切断","バリ取り","曲げ","溶接","溶接部仕上げ","表面前処理","粉体塗装","焼付乾燥","外観検査","梱包","出荷"],
       cleanZones:[], keyEquipment:["ファイバーレーザー加工機","プレスブレーキ","溶接ロボット","粉体塗装設備"],
       capexOku:13, buildMonths:8, unitCostIndex:90, rampUpMonths:2, networkFactories:63, note:"短納期試作に対応" },
     { id:"FT-079", name:"樹脂射出成形 中大量産セル", productType:"injection-molding", volumeBand:"mid", toleranceClass:"precision",
-      processFlow:["材料乾燥","射出成形","取出し","ゲートカット","外観検査","組立","梱包"],
+      processFlow:["材料受入","材料乾燥","射出成形","取出し","ゲートカット","バリ取り","外観検査","二次加工・組立","機能検査","梱包","出荷"],
       cleanZones:[], keyEquipment:["電動射出成形機","金型温調機","取出しロボット","画像検査装置"],
       capexOku:28, buildMonths:9, unitCostIndex:86, rampUpMonths:3, networkFactories:57, note:"金型交換を自動化" },
     { id:"FT-093", name:"自動車用ワイヤーハーネス セル生産ライン", productType:"wire-harness", volumeBand:"mid", toleranceClass:"general",
@@ -1828,7 +1828,7 @@
       if (!used[j]) out.push({ sourceIndex: j, name: String(src[j] || "工程") });
     }
     if (!out.length) out.push({ sourceIndex: 0, name: "工程" });
-    out = out.slice(0, 9);
+    out = out.slice(0, 16);
     for (var k = 0; k < out.length; k++) {
       var item = out[k];
       item.no = k + 1;
@@ -2045,7 +2045,16 @@
   function bpxUPositions(count, x, y, w, h) {
     if (count <= 1) return [[x + w / 2, y + h / 2]];
     if (count === 2) return [[x + w * 0.28, y + h * 0.35], [x + w * 0.72, y + h * 0.68]];
-    return [[x + w * 0.25, y + h * 0.33], [x + w * 0.72, y + h * 0.33], [x + w * 0.72, y + h * 0.70]];
+    // U字型(左辺→底辺→右辺)の外周に、件数に関わらず均等配置する(実際のU字セル動線を再現)
+    var leftLen = h, bottomLen = w, rightLen = h, total = leftLen + bottomLen + rightLen;
+    var pts = [];
+    for (var i = 0; i < count; i++) {
+      var t = ((i + 0.5) / count) * total;
+      if (t < leftLen) pts.push([x + w * 0.12, y + t]);
+      else if (t < leftLen + bottomLen) pts.push([x + (t - leftLen), y + h * 0.92]);
+      else pts.push([x + w * 0.88, y + h - (t - leftLen - bottomLen)]);
+    }
+    return pts;
   }
 
   function bpxDrawCellLayout(s, flow, g) {
@@ -2133,10 +2142,12 @@
       if (!grouped.hasOwnProperty(key)) continue;
       var area = map[key], arr = grouped[key], count = arr.length;
       if (!count) continue;
-      var cols = count <= 2 ? count : Math.min(3, count);
+      // 件数が多いほど列を増やして行数を抑え、キャプション同士が縦に重ならないようにする
+      var colCap = count <= 6 ? 3 : (count <= 9 ? 4 : 5);
+      var cols = count <= 2 ? count : Math.min(colCap, count);
       var rows = Math.ceil(count / cols);
       var availY = area.y + 25, availH = Math.max(20, area.h - 32);
-      var blockW = Math.max(24, Math.min(36, area.w / cols - 10));
+      var blockW = Math.max(22, Math.min(36, area.w / cols - 8));
       var blockH = Math.max(14, Math.min(20, availH / rows - 2));
       for (j = 0; j < count; j++) {
         var col = j % cols, row = Math.floor(j / cols);
@@ -2146,7 +2157,7 @@
         ];
         arr[j].bpxW = blockW;
         arr[j].bpxH = blockH;
-        arr[j].bpxCaption = count <= 4;
+        arr[j].bpxCaption = count <= 10;
       }
     }
 
@@ -2491,7 +2502,7 @@
     var meta = bpxMethodMeta(method);
     var flow = bpxOrderedItems(t || {}, order || []);
     var g = bpxBaseGeometry();
-    var xBays = Math.max(4, Math.min(7, flow.length + 1));
+    var xBays = Math.max(4, Math.min(10, flow.length + 1));
     var yBays = 4;
     var s = [];
 
