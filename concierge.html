@@ -3999,9 +3999,11 @@ if (mount) {
   if (st && st.tmpl) window.CaddiPlant3D.render(st.tmpl, st.order);
 
   function createBaseLights() {
-    var hemi = new THREE.HemisphereLight(0xffffff, 0x71808d, 0.78);
+    // 環境光(hemi/ambient/IBL)が強すぎると、影が有効でもコントラストが消えて"影の無い曇天ショールーム"に見える。
+    // 主光源(key)を相対的に立たせ、実工場の高天井照明が作る"光の溜まり"を出す。
+    var hemi = new THREE.HemisphereLight(0xffffff, 0x71808d, 0.34);
     scene.add(hemi);
-    var ambient = new THREE.AmbientLight(0xffffff, 0.28);
+    var ambient = new THREE.AmbientLight(0xffffff, 0.14);
     scene.add(ambient);
     var key = new THREE.DirectionalLight(0xffffff, 1.16);
     key.position.set(-18, 24, 16);
@@ -4443,7 +4445,8 @@ if (mount) {
   function createMaterials() {
     var dark = isDarkTheme();
     var mats = {
-      floorBase: mat(dark ? 0x2a3238 : 0xd8dee4, 0.92, 0.02),
+      floorBase: mat(dark ? 0x262e34 : 0xcfd6db, 0.32, 0.04), // 実工場のエポキシ塗床は半光沢(粗さ0.9では舞台セットのマットな床に見える)
+      floorTireTrack: mat(dark ? 0x161c20 : 0x9aa3aa, 0.4, 0.03, true, 0.4),
       floorFleck: mat(dark ? 0x596572 : 0xb9c2ca, 0.9, 0, true, 0.2),
       gridLine: mat(dark ? 0x54606c : 0xb9c2ca, 0.9, 0, true, 0.42),
       zoneCell: mat(0x44b77a, 0.84, 0, true, dark ? 0.15 : 0.19, false),
@@ -4499,6 +4502,8 @@ if (mount) {
       helmetLogistics: mat(0x8b96a0, 0.5, 0.04),
       sensorGreen: emissiveMat(0x23cc76, 0x073b20, 0.25),
       sensorRed: emissiveMat(0xff453f, 0x3d0505, 0.34),
+      highBayLight: emissiveMat(0xfff6dd, 0xfff2c8, 1.4),
+      highBayHousing: mat(0x3a4048, 0.5, 0.25),
       beam: mat(0x48e0ff, 0.2, 0, true, 0.32, false),
       fencePost: mat(0xd2aa2c, 0.46, 0.38),
       fenceMesh: mat(0xd8b73a, 0.5, 0.2, true, 0.2, false),
@@ -4793,6 +4798,18 @@ if (mount) {
     createDockFrames(layout, mats);
     createZoneBoundaryLines(layout, mats);
     createEpoxyFlecks(layout.hallW, layout.hallD, mats);
+    createTireTracks(layout, mats);
+  }
+
+  // フォークリフト・台車が繰り返し通る主通路に、わずかに暗い轍(タイヤ痕)を2本走らせる。
+  // "使われている床"の生活感を出す(綺麗すぎる床はCGっぽく見えるというデザインレビュー指摘への対応)。
+  function createTireTracks(layout, mats) {
+    var trackW = 0.16, gap = layout.mainAisleWidth * 0.42;
+    var len = layout.hallW - 2.2;
+    var t1 = addBox(equipmentGroup, len, 0.006, trackW, mats.floorTireTrack, 0, 0.145, layout.mainAisleZ - gap);
+    var t2 = addBox(equipmentGroup, len, 0.006, trackW, mats.floorTireTrack, 0, 0.145, layout.mainAisleZ + gap);
+    t1.castShadow = false; t1.receiveShadow = false;
+    t2.castShadow = false; t2.receiveShadow = false;
   }
 
   function createMethodFloorZones(layout, mats) {
@@ -4980,6 +4997,33 @@ if (mount) {
       }
     }
     for (i = 0; i < xs.length; i++) addBox(equipmentGroup, 0.1, 0.1, layout.hallD - 1.1, mats.roofBeam, xs[i], layout.roofY + 0.04, 0).castShadow = false;
+    createHighBayLights(layout, xs, zs, mats);
+  }
+
+  // 高天井照明(水銀灯/LED器具)を格子状に吊り、床に"光の溜まり"を作る。
+  // 実PointLightは負荷を抑えるため間引いて数個のみ、残りは発光体メッシュのみ(見た目だけ)にする。
+  function createHighBayLights(layout, xs, zs, mats) {
+    var fixtureXs = xs.filter(function (_, i) { return i % 2 === 1; });
+    var fixtureZs = zs.filter(function (_, i) { return i % 2 === 1; });
+    var lightBudget = 5;
+    var placed = 0;
+    for (var i = 0; i < fixtureXs.length; i++) {
+      for (var j = 0; j < fixtureZs.length; j++) {
+        var x = fixtureXs[i], z = fixtureZs[j], y = layout.roofY - 0.32;
+        addCylinder(equipmentGroup, 0.02, 0.02, 0.22, 6, mats.highBayHousing, x, y + 0.16, z).castShadow = false;
+        var shade = addCylinder(equipmentGroup, 0.42, 0.3, 0.14, 16, mats.highBayHousing, x, y, z);
+        shade.castShadow = false;
+        var lens = addCylinder(equipmentGroup, 0.36, 0.36, 0.02, 16, mats.highBayLight, x, y - 0.075, z);
+        lens.castShadow = false;
+        lens.receiveShadow = false;
+        if (placed < lightBudget && (i + j) % 3 === 0) {
+          var pl = new THREE.PointLight(0xfff3d8, 5.5, 9, 2);
+          pl.position.set(x, y - 0.2, z);
+          equipmentGroup.add(pl);
+          placed++;
+        }
+      }
+    }
   }
 
   function isColumnBlocked(x, z, layout) {
