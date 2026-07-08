@@ -3889,6 +3889,7 @@ if (mount) {
   var baseHemiIntensity = 0.34;
   var baseAmbientIntensity = 0.14;
   var skyTextureCache = {}; // モジュール初期化直後にapplyTheme()が同期呼び出しされるため、ここで先に初期化しておく
+  var signTextureCache = null; // 同様に、モジュール初期化直後の同期render呼び出しより前に宣言しておく必要がある
   var shellVisible = true;
   var geometryCache = Object.create(null);
   var activeMaterials = [];
@@ -4522,6 +4523,9 @@ if (mount) {
       carBody3: mat(0x8a3b34, 0.35, 0.25),
       carBody4: mat(0x2f4a5c, 0.35, 0.25),
       carGlass: mat(0x2a3238, 0.2, 0.1),
+      substationBody: mat(dark ? 0x4a5058 : 0xc4a642, 0.55, 0.3),
+      substationStripe: mat(0xd8342a, 0.5, 0.1),
+      substationFence: mat(dark ? 0x3a4148 : 0x8b939a, 0.55, 0.35, true, 0.5),
       dockDoor: mat(dark ? 0x1d252d : 0x6f7b86, 0.64, 0.16),
       dockBumper: mat(0x171d22, 0.78, 0.02),
       conveyorBelt: mat(0x222b34, 0.58, 0.18),
@@ -5039,6 +5043,62 @@ if (mount) {
     createSiteFenceRun(-layout.hallW / 2 - 9, layout.hallW / 2 + 9, -layout.halfD - 7, mats, "x");
     createSiteFenceRun(-layout.hallW / 2 - 9, layout.hallW / 2 + 9, layout.halfD + 9, mats, "x");
     createSiteFenceRun(-layout.halfD - 7, layout.halfD + 9, -layout.hallW / 2 - 9, mats, "z");
+
+    createOutdoorSubstation(layout, mats);
+    createBuildingSignage(layout, mats);
+  }
+
+  // 屋外受変電キュービクル(電力会社からの高圧引込を受ける設備)。実務上、工場外壁の一角に必ずある。
+  // 感電注意の警告ストライプ+簡易フェンスで囲い、電気室らしさを出す。
+  function createOutdoorSubstation(layout, mats) {
+    var x = layout.leftX - 2.6, z = layout.halfD * 0.35;
+    var w = 2.4, d = 1.3, h = 1.9;
+    var body = addBox(shellGroup, w, h, d, mats.substationBody, x, h / 2, z);
+    body.castShadow = true;
+    addBox(shellGroup, w + 0.04, 0.14, d + 0.04, mats.substationStripe, x, h - 0.1, z).castShadow = false;
+    addBox(shellGroup, w + 0.04, 0.14, d + 0.04, mats.substationStripe, x, 0.3, z).castShadow = false;
+    // 簡易フェンス(4辺)
+    var fx = w / 2 + 0.55, fz = d / 2 + 0.55;
+    addBox(shellGroup, w + 1.1, 1.3, 0.02, mats.substationFence, x, 0.65, z - fz).castShadow = false;
+    addBox(shellGroup, w + 1.1, 1.3, 0.02, mats.substationFence, x, 0.65, z + fz).castShadow = false;
+    addBox(shellGroup, 0.02, 1.3, d + 1.1, mats.substationFence, x - fx, 0.65, z).castShadow = false;
+    addBox(shellGroup, 0.02, 1.3, d + 1.1, mats.substationFence, x + fx, 0.65, z).castShadow = false;
+    addHtmlLabel("Substation (高圧受電盤)", v3(x, h + 0.5, z), "zone");
+  }
+
+  function createSignTexture() {
+    if (signTextureCache) return signTextureCache;
+    var canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 128;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#e9edf1";
+    ctx.fillRect(0, 0, 512, 128);
+    ctx.fillStyle = "#c62828";
+    ctx.fillRect(0, 0, 512, 10);
+    ctx.fillRect(0, 118, 512, 10);
+    ctx.fillStyle = "#1c2733";
+    ctx.font = "bold 56px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("CaddiPlant", 256, 56);
+    ctx.font = "22px sans-serif";
+    ctx.fillStyle = "#4a5560";
+    ctx.fillText("第一工場", 256, 96);
+    var tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    signTextureCache = tex;
+    return tex;
+  }
+
+  // 妻壁の社名看板(CanvasTexture、外部画像は使用しない)。稼働中の実在感を出す。
+  function createBuildingSignage(layout, mats) {
+    var signMat = new THREE.MeshStandardMaterial({ map: createSignTexture(), roughness: 0.55, metalness: 0.05 });
+    var w = 3.6, h = 0.9;
+    var mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.05), signMat);
+    mesh.position.set(0, layout.wallHeight - 0.85, layout.halfD + 0.12);
+    mesh.castShadow = false;
+    shellGroup.add(mesh);
   }
 
   function createParkedCar(x, z, mats, colorKey, faceAlt) {
