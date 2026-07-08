@@ -2909,6 +2909,10 @@
 
     var bestMonthlyCap = intRound(targetMonthly * clamp(capacityFactor, 0.95, 1.10));
     var bestCapex = round1(capexBase * capexFactor);
+    // 目標仕様(生産能力・公差等)を満たすために本来必要な投資額(予算で丸める前の値)を保持する。
+    // 以前はここで予算内に強制クリップして"成立したように見せて"いたが、
+    // それでは予算超過という重要な制約違反が利用者に伝わらない(agy/codexレビューで指摘)。
+    var requiredCapexOku = bestCapex;
     if (bestCapex > budgetCapOku) {
       bestCapex = round1(Math.max(1, budgetCapOku * (0.88 + rand() * 0.08)));
     }
@@ -3066,6 +3070,8 @@
       best: {
         monthlyCap: bestMonthlyCap,
         capexOku: bestCapex,
+        requiredCapexOku: round1(requiredCapexOku),
+        budgetGapOku: round1(Math.max(0, requiredCapexOku - budgetCapOku)),
         months: bestMonths,
         operators: bestOperators,
         bottleneck: bestBottleneck,
@@ -3242,7 +3248,10 @@
     function variant(pr) {
       var r = runDesignSearch(mkDecInput(t, pr)).best;
       var capex = r.capexOku * pmAdj.capex, months = r.months * pmAdj.months, ops = Math.round(r.operators * pmAdj.ops);
-      return { cap: r.monthlyCap, capex: capex, months: months, ops: ops, score: r.score, pay: paybackOf(capex, r.monthlyCap, months, price, margin), area: area };
+      // 表示用capexは予算内に丸めた値だが、requiredCapexは目標仕様を満たすために本来必要な額(丸め前)。
+      // 両者に差があれば「予算内に収まって見えるが実際は不足している」制約違反として利用者に伝える。
+      var requiredCapex = (r.requiredCapexOku || r.capexOku) * pmAdj.capex;
+      return { cap: r.monthlyCap, capex: capex, requiredCapex: requiredCapex, months: months, ops: ops, score: r.score, pay: paybackOf(capex, r.monthlyCap, months, price, margin), area: area };
     }
     var rec = variant(dsPriority()), low = variant("cost"), fast = variant("time");
     decRec = { v: rec, price: price, margin: margin, target: target };
@@ -3255,7 +3264,9 @@
     if (rec.cap < target * 0.97) alert("bad", "✕", "生産能力 未達 −" + Math.round((1 - rec.cap / target) * 100) + "%");
     else if (rec.cap < target) alert("warn", "!", "生産能力 ほぼ達成");
     else alert("ok", "✓", "生産能力 達成");
-    if (rec.capex > budgetCap) alert("bad", "✕", "予算 超過 ¥" + Math.round(rec.capex - budgetCap) + "億");
+    // 表示capexではなく、目標仕様を満たすために本来必要なrequiredCapexで予算超過を判定する
+    // (表示capexは予算内に丸めてあるため、これだけを見ると予算超過が発生していても気づけない)
+    if (rec.requiredCapex > budgetCap) alert("bad", "✕", "予算 不足 実際は¥" + Math.round(rec.requiredCapex) + "億必要（申請予算比 +¥" + Math.round(rec.requiredCapex - budgetCap) + "億）");
     else if (rec.capex > budgetCap * 0.9) alert("warn", "!", "予算 上限に接近");
     else alert("ok", "✓", "予算 範囲内");
     var needClean = state.certs.indexOf("clean") >= 0 || state.certs.indexOf("gmp") >= 0 || state.certs.indexOf("haccp") >= 0;
@@ -3295,10 +3306,17 @@
     document.getElementById("decTable").innerHTML = th;
 
     var PRLABEL = { cost: "コスト最小", time: "立上げ最短", staff: "人員最小", capacity: "生産能力最大" };
+    var budgetNote = "";
+    if (rec.requiredCapex > budgetCap) {
+      budgetNote = ' <b style="color:var(--bad)">この案は申請予算（¥' + budgetCap + '億）では目標仕様(生産能力・公差等)を満たせません。'
+        + '表内の「建設投資」は予算内に収まるよう見かけ上圧縮した値であり、実際に目標を達成するには¥' + Math.round(rec.requiredCapex) + '億が必要です。'
+        + '予算を増額するか、生産能力目標を下げるか、立上げ期間を延ばして段階投資にするかの判断が必要です。</b>';
+    }
     document.getElementById("decNote").innerHTML =
       '推奨案＝要件から判定した最重視軸「<b>' + (PRLABEL[dsPriority()] || "コスト最小") + '</b>」に沿った案。低コスト案は建設投資を、高速立上げ案は立上げ期間を最小化します。'
       + '<b>適合度スコア</b>は各案が自らの重視軸でどれだけ優れるかを表すため、推奨案が必ずしも最高スコアとは限りません（低コスト案の方が高スコアになることもあります）。'
-      + ' 3案とも設計図面で選択中の生産方式「<b>' + prodMethodLabel(state.prodMethod) + '</b>」の特性（設備投資・必要人員・立上げ期間）を反映しています。';
+      + ' 3案とも設計図面で選択中の生産方式「<b>' + prodMethodLabel(state.prodMethod) + '</b>」の特性（設備投資・必要人員・立上げ期間）を反映しています。'
+      + budgetNote;
 
     document.getElementById("decAssume").innerHTML =
       '<div>製品単価: ¥' + nf(price) + ' /個（想定）</div>'
@@ -3704,7 +3722,10 @@
 
   // 3Dモジュールが後から読み込まれた時に初期描画できるよう、現在状態を公開
   window.CaddiPlantState = function () {
-    return { tmpl: view.tmpl, order: view.order.slice(), prodMethod: state.prodMethod };
+    var a = (view.tmpl && IMPACT_ASSUM[view.tmpl.productType]) || IMPACT_ASSUM["precision-machined"];
+    var targetMonthly = Math.round(a.units * (VOL_MULT[state.volume] || 1) * 10000);
+    return { tmpl: view.tmpl, order: view.order.slice(), prodMethod: state.prodMethod,
+      targetMonthly: targetMonthly, toleranceClass: view.tmpl ? view.tmpl.toleranceClass : "general", shift: state.shift };
   };
 
   // ==== フェーズ遷移（ステッパー）: 要件は常に左で編集、右は1フェーズずつ表示 ====
@@ -5077,12 +5098,25 @@ if (mount) {
   }
 
   // 生産量から必要な機械台数を導出：1工程あたりの並列機械数(表示上限3台、実数は台数ラベルに表示)
+  // 生産量→機械台数(agyの指摘で修正: 以前は人員数から機械台数を逆算していたが、
+  // 本来は目標生産量→タクトタイム→必要機械台数→人員、の順であるべき)
   function machinesPerStation(prodMethod) {
-    var pyramid = safeOrgPyramid();
-    if (!pyramid) return 1;
-    var operatorsPerMachine = prodMethod === "line" ? 2.6 : (prodMethod === "functional" ? 1.9 : 1.6);
-    var estimated = Math.round(pyramid.operators / Math.max(3, operatorsPerMachine * 3) );
-    return Math.max(1, Math.min(3, estimated));
+    var st = safePlantState();
+    var targetMonthly = (st && st.targetMonthly) || 50000;
+    var toleranceClass = (st && st.toleranceClass) || "general";
+    var shift = (st && st.shift) || "2";
+    // 公差が厳しいほどサイクルタイムが長くなる(1台あたりの処理能力が下がる)という前提
+    var cycleTimeSec = toleranceClass === "ultra-precision" ? 150 : (toleranceClass === "precision" ? 100 : 65);
+    // 稼働形態(シフト)による実稼働時間/日の目安(段取り・引継ぎロスを考慮)
+    var shiftHours = (shift === "3" || shift === "auto") ? 21 : (shift === "2" ? 15 : 7.5);
+    var workingDaysPerMonth = 20.8;
+    var targetPerHour = targetMonthly / workingDaysPerMonth / shiftHours;
+    var oee = 0.75; // 総合設備効率(チョコ停・段取り替え等を織り込んだ現実的な前提)
+    var machineCapacityPerHour = (3600 / cycleTimeSec) * oee;
+    var machinesNeeded = Math.ceil(targetPerHour / Math.max(1, machineCapacityPerHour));
+    // 生産方式による効率係数(ラインはタクト同期で若干効率化、機能別は段取り替えで非効率)
+    var methodFactor = prodMethod === "line" ? 0.85 : (prodMethod === "functional" ? 1.15 : 1.0);
+    return Math.max(1, Math.min(3, Math.round(machinesNeeded * methodFactor)));
   }
 
   function createStations(layout, flow, template, mats) {
