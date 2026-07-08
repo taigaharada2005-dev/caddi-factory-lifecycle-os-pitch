@@ -5038,6 +5038,9 @@ if (mount) {
       if (pseudoRandom(i * 13 + 7) < 0.72) createParkedCar(cx, lotZ, mats, carColors[i % carColors.length], pseudoRandom(i * 5 + 2) > 0.5);
     }
     addHtmlLabel("Employee Parking", v3(0, 0.5, lotZ + 3.2), "zone");
+    // 駐車場の照明ポール(夜間・実運用の実在感)
+    var poleXs = [startX - 1.5, startX + (stallCount - 1) * (stallW + stallGap) + 1.5];
+    for (var pi = 0; pi < poleXs.length; pi++) createSiteLightPole(poleXs[pi], lotZ + 3.6, mats);
 
     // 敷地フェンス: 3辺(受入・出荷側は開口として空ける)
     createSiteFenceRun(-layout.hallW / 2 - 9, layout.hallW / 2 + 9, -layout.halfD - 7, mats, "x");
@@ -5099,6 +5102,15 @@ if (mount) {
     mesh.position.set(0, layout.wallHeight - 0.85, layout.halfD + 0.12);
     mesh.castShadow = false;
     shellGroup.add(mesh);
+  }
+
+  // 駐車場の照明ポール(高さ5m程度のポール灯)。夜間も安全に使われている場所という実在感を出す。
+  function createSiteLightPole(x, z, mats) {
+    addCylinder(shellGroup, 0.09, 0.11, 5.0, 8, mats.ventFanBody, x, 2.5, z).castShadow = true;
+    var head = addBox(shellGroup, 0.5, 0.14, 0.32, mats.highBayHousing, x, 5.02, z);
+    head.castShadow = false;
+    var lens = addBox(shellGroup, 0.42, 0.03, 0.24, mats.highBayLight, x, 4.95, z);
+    lens.castShadow = false;
   }
 
   function createParkedCar(x, z, mats, colorKey, faceAlt) {
@@ -5204,6 +5216,12 @@ if (mount) {
     addBox(shellGroup, 0.1, 0.48, doorWidth * 0.82, mats.dockDoor, x + (isLeft ? -0.06 : 0.06), 1.75, doorZ);
     addBox(shellGroup, 0.16, 0.72, 0.14, mats.dockBumper, x + (isLeft ? 0.25 : -0.25), 0.36, doorZ - doorWidth * 0.37);
     addBox(shellGroup, 0.16, 0.72, 0.14, mats.dockBumper, x + (isLeft ? 0.25 : -0.25), 0.36, doorZ + doorWidth * 0.37);
+    // 荷捌きドックの庇(雨除けキャノピー)。実際の工場では搬入口に必ずあり、無いと違和感が強い。
+    var canopyDir = isLeft ? -1 : 1;
+    var canopyDepth = 1.9;
+    addBox(shellGroup, canopyDepth, 0.1, doorWidth + 0.6, mats.roofPanel, x + canopyDir * canopyDepth / 2, 2.62, doorZ).castShadow = true;
+    addBox(shellGroup, 0.06, 0.5, 0.06, mats.wallDark, x + canopyDir * (canopyDepth - 0.2), 2.35, doorZ - doorWidth * 0.4).castShadow = false;
+    addBox(shellGroup, 0.06, 0.5, 0.06, mats.wallDark, x + canopyDir * (canopyDepth - 0.2), 2.35, doorZ + doorWidth * 0.4).castShadow = false;
   }
 
   function createColumnsAndRoof(layout, mats) {
