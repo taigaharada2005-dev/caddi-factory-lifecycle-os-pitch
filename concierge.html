@@ -3884,6 +3884,10 @@ if (mount) {
   var controls;
   var equipmentGroup = new THREE.Group();
   var shellGroup = null; // 外壁・屋根(建屋の外側)専用グループ。ボタンで表示/非表示を切替できる
+  var hemiLight = null;
+  var ambientLight = null;
+  var baseHemiIntensity = 0.34;
+  var baseAmbientIntensity = 0.14;
   var shellVisible = true;
   var geometryCache = Object.create(null);
   var activeMaterials = [];
@@ -4003,10 +4007,10 @@ if (mount) {
   function createBaseLights() {
     // 環境光(hemi/ambient/IBL)が強すぎると、影が有効でもコントラストが消えて"影の無い曇天ショールーム"に見える。
     // 主光源(key)を相対的に立たせ、実工場の高天井照明が作る"光の溜まり"を出す。
-    var hemi = new THREE.HemisphereLight(0xffffff, 0x71808d, 0.34);
-    scene.add(hemi);
-    var ambient = new THREE.AmbientLight(0xffffff, 0.14);
-    scene.add(ambient);
+    hemiLight = new THREE.HemisphereLight(0xffffff, 0x71808d, 0.34);
+    scene.add(hemiLight);
+    ambientLight = new THREE.AmbientLight(0xffffff, 0.14);
+    scene.add(ambientLight);
     var key = new THREE.DirectionalLight(0xffffff, 1.16);
     key.position.set(-18, 24, 16);
     key.castShadow = true;
@@ -4160,6 +4164,10 @@ if (mount) {
     buttons.shell = createPanelButton("外壁を隠す", function () {
       shellVisible = !shellVisible;
       if (shellGroup) shellGroup.visible = shellVisible;
+      // 高天井照明(PointLight)もshellGroup側にあるため、外壁を隠すと消える。
+      // 室内が暗くなりすぎないよう、隠している間だけ環境光を少し補っておく。
+      if (hemiLight) hemiLight.intensity = shellVisible ? baseHemiIntensity : baseHemiIntensity + 0.22;
+      if (ambientLight) ambientLight.intensity = shellVisible ? baseAmbientIntensity : baseAmbientIntensity + 0.12;
       buttons.shell.textContent = shellVisible ? "外壁を隠す" : "外壁を表示";
     });
 
@@ -5083,11 +5091,13 @@ if (mount) {
         var lens = addCylinder(shellGroup, 0.36, 0.36, 0.02, 16, mats.highBayLight, x, y - 0.075, z);
         lens.castShadow = false;
         lens.receiveShadow = false;
-        // 実際の光源(PointLight)は外壁・屋根を隠しても室内が暗くならないよう、shellGroupではなくequipmentGroup直下に置く
+        // 光源(PointLight)もフィクスチャと同じshellGroupに入れる(agyレビュー指摘: 別グループだと
+        // 外壁を隠した時に"器具は消えたのに光だけ宙に浮く"という不自然な状態になっていた)。
+        // 外壁を隠した際の室内の明るさは、ボタンハンドラ側でhemi/ambientを補正して確保する。
         if (placed < lightBudget && (i + j) % 3 === 0) {
           var pl = new THREE.PointLight(0xfff3d8, 5.5, 9, 2);
           pl.position.set(x, y - 0.2, z);
-          equipmentGroup.add(pl);
+          shellGroup.add(pl);
           placed++;
         }
       }
