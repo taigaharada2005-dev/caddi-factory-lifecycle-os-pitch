@@ -4526,6 +4526,8 @@ if (mount) {
       substationBody: mat(dark ? 0x4a5058 : 0xc4a642, 0.55, 0.3),
       substationStripe: mat(0xd8342a, 0.5, 0.1),
       substationFence: mat(dark ? 0x3a4148 : 0x8b939a, 0.55, 0.35, true, 0.5),
+      siteLawn: mat(dark ? 0x2a3a2c : 0x6b9450, 0.85, 0.02),
+      shrub: mat(dark ? 0x25342a : 0x4d7444, 0.75, 0.05),
       dockDoor: mat(dark ? 0x1d252d : 0x6f7b86, 0.64, 0.16),
       dockBumper: mat(0x171d22, 0.78, 0.02),
       conveyorBelt: mat(0x222b34, 0.58, 0.18),
@@ -5049,6 +5051,21 @@ if (mount) {
 
     createOutdoorSubstation(layout, mats);
     createBuildingSignage(layout, mats);
+    createGreenBelt(layout, mats);
+  }
+
+  // 法定緑地帯(芝生+低木)。アスファルトと建屋だけの敷地は殺風景で、実際の工場立地では緑化義務がある
+  // ことが多い。受入側(-Z)の敷地境界沿いに帯状に配置する。
+  function createGreenBelt(layout, mats) {
+    var beltZ = -layout.halfD - 4.2;
+    addBox(shellGroup, layout.hallW + 14, 0.03, 3.2, mats.siteLawn, 0, 0.015, beltZ).castShadow = false;
+    var shrubCount = Math.max(4, Math.min(9, Math.round(layout.hallW / 6)));
+    for (var i = 0; i < shrubCount; i++) {
+      var sx = -layout.hallW / 2 - 5 + (i * (layout.hallW + 10)) / (shrubCount - 1);
+      var s = pseudoRandom(i * 17 + 3) * 0.18 + 0.32;
+      var shrub = addBox(shellGroup, s, s * 0.8, s, mats.shrub, sx, s * 0.4, beltZ + (pseudoRandom(i * 7 + 1) - 0.5) * 1.2);
+      shrub.castShadow = false;
+    }
   }
 
   // 屋外受変電キュービクル(電力会社からの高圧引込を受ける設備)。実務上、工場外壁の一角に必ずある。
@@ -5161,6 +5178,7 @@ if (mount) {
     createEntranceDoor(layout, mats);
     createColumnsAndRoof(layout, mats);
     createRoofVentFans(layout, mats);
+    createLightningRod(layout, mats);
     shellGroup.visible = shellVisible;
   }
 
@@ -5200,6 +5218,14 @@ if (mount) {
       }
       addCylinder(shellGroup, 0.06, 0.06, 0.14, 8, mats.ventFanBody, x, y - 0.15, 0).castShadow = false;
     }
+  }
+
+  // 避雷針。屋根の頂部に立つ小さな縦棒だが、"ちゃんと設計された建物"感への寄与が大きい定番ディテール。
+  function createLightningRod(layout, mats) {
+    var y = layout.roofY + 0.85;
+    var rod = addCylinder(shellGroup, 0.02, 0.03, 1.1, 6, mats.ventFanBody, 0, y + 0.55, 0);
+    rod.castShadow = false;
+    addCylinder(shellGroup, 0.05, 0.05, 0.06, 8, mats.substationStripe, 0, y + 0.03, 0).castShadow = false;
   }
 
   function createSideWallWithOpening(x, doorZ, doorWidth, isLeft, layout, mats) {
