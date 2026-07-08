@@ -4470,6 +4470,7 @@ if (mount) {
       wallDark: mat(dark ? 0x252d35 : 0x7e8993, 0.7, 0.08),
       column: mat(dark ? 0x68727c : 0xaeb7c0, 0.48, 0.38),
       roofBeam: mat(dark ? 0x3d4650 : 0x87929d, 0.5, 0.54),
+      roofPanel: mat(dark ? 0x2d353d : 0x6b7882, 0.62, 0.32),
       dockDoor: mat(dark ? 0x1d252d : 0x6f7b86, 0.64, 0.16),
       dockBumper: mat(0x171d22, 0.78, 0.02),
       conveyorBelt: mat(0x222b34, 0.58, 0.18),
@@ -5010,6 +5011,16 @@ if (mount) {
     }
     for (i = 0; i < xs.length; i++) addBox(shellGroup, 0.1, 0.1, layout.hallD - 1.1, mats.roofBeam, xs[i], layout.roofY + 0.04, 0).castShadow = false;
     createHighBayLights(layout, xs, zs, mats);
+    // 屋根トラスは梁だけで面が無いため、外壁表示時でも上から中が見えてしまっていた。
+    // トラスの頂部より上に実際の屋根板(不透明パネル)を張り、外観表示時は完全に中が見えないようにする。
+    var roofPanel = addBox(shellGroup, layout.hallW, 0.14, layout.hallD, mats.roofPanel, 0, layout.roofY + 0.78, 0);
+    roofPanel.castShadow = true;
+    roofPanel.receiveShadow = false;
+    // 屋根の縁(パラペット)を軽く立ち上げて、板一枚だけの薄さを隠す
+    addBox(shellGroup, layout.hallW, 0.32, 0.1, mats.roofPanel, 0, layout.roofY + 0.62, -layout.halfD).castShadow = false;
+    addBox(shellGroup, layout.hallW, 0.32, 0.1, mats.roofPanel, 0, layout.roofY + 0.62, layout.halfD).castShadow = false;
+    addBox(shellGroup, 0.1, 0.32, layout.hallD, mats.roofPanel, layout.leftX, layout.roofY + 0.62, 0).castShadow = false;
+    addBox(shellGroup, 0.1, 0.32, layout.hallD, mats.roofPanel, layout.rightX, layout.roofY + 0.62, 0).castShadow = false;
   }
 
   // 高天井照明(水銀灯/LED器具)を格子状に吊り、床に"光の溜まり"を作る。
