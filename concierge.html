@@ -4280,17 +4280,19 @@ if (mount) {
     var n = Math.max(3, Math.min(16, flow.length));
     var productType = getTemplateProductType(template);
     var variant = optimizedLayout ? 0 : (layoutVariant % 3);
-    // 「工場を建てる人は無駄なスペースを作らない」という指摘を受け、根拠の薄い余裕を詰める:
-    // 主通路はフォークリフト通行を考慮しても2.3〜2.6mで十分(旧: 2.75〜3.05m)。
-    // 建屋幅の下限も、QC室/事務所/ドック等の固定フットプリントを圧迫しない範囲で約9%タイトに。
-    var hallWBase = prodMethod === "functional" ? 41 : (prodMethod === "line" ? 39 : 40);
+    // agyによる定量監査(充填率わずか8.2%)を受け、根拠の薄い底上げ値を大幅に削る:
+    // 主通路は法定最小に近い2.0〜2.2mで十分(旧: 2.3〜2.6m)。
+    // hallWの固定底上げ"31"は受入・出荷ドック+端部余白の実寸(約20m相当)まで縮小。
+    // 建屋幅下限もQC室/事務所/ドック等の固定フットプリントを圧迫しない範囲でさらに詰める。
+    var hallWBase = prodMethod === "functional" ? 33 : (prodMethod === "line" ? 32 : 33);
     var staffPyramidForHall = safeOrgPyramid();
     var staffHallAdd = staffPyramidForHall && staffPyramidForHall.total > 40 ? Math.min(6, (staffPyramidForHall.total - 40) * 0.08) : 0;
-    var hallW = Math.max(hallWBase, 31 + n * (prodMethod === "line" ? 1.5 : 1.7) + variant * 1.1) + staffHallAdd;
+    var hallW = Math.max(hallWBase, 20 + n * (prodMethod === "line" ? 1.5 : 1.7) + variant * 1.1) + staffHallAdd;
     // 目標生産量→必要機械台数を"先に"決め、その実寸(スケールダウンしない)を収める分だけ建屋奥行きを広げる
     // (動線に合わせて機械を詰め込むのではなく、機械の必要数に合わせて建屋を広げる)
     var machineCount = machinesPerStation(prodMethod);
-    var hallDBase = prodMethod === "functional" ? 26.4 : (prodMethod === "line" ? 24.8 : 25.6);
+    // 建屋奥行きも、生産エリア+QC室+事務所/食堂の実際の必要分まで縮小(旧24.8〜26.4mは根拠なく深すぎた)
+    var hallDBase = prodMethod === "functional" ? 19 : (prodMethod === "line" ? 17.5 : 18.2);
     var machineDepthEach = 1.9; // 機械1台分の奥行き+離隔(実寸)
     var hallD = hallDBase + (machineCount > 1 ? (machineCount - 1) * machineDepthEach : 0);
     var halfD = hallD / 2;
@@ -4321,7 +4323,7 @@ if (mount) {
       leftX: leftX,
       rightX: rightX,
       mainAisleZ: mainAisleZ,
-      mainAisleWidth: optimizedLayout ? 2.3 : 2.6,
+      mainAisleWidth: optimizedLayout ? 2.0 : 2.2,
       lineZ: lineZ,
       packZ: lineZ,
       qcZ: lineZ,
