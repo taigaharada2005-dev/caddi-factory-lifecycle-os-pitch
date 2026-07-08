@@ -512,6 +512,18 @@
   .decassume summary { cursor: pointer; color: var(--accent-deep); font-family: var(--font-mono); font-size: 0.76rem; }
   .decassume-body { margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 6px; font-family: var(--font-mono); font-size: 0.72rem; }
   .decassume-body div { border: 1px solid var(--line); border-radius: 5px; padding: 6px 9px; background: var(--panel-deep); color: var(--steel-deep); }
+  .decorg summary { cursor: pointer; color: var(--accent-deep); font-family: var(--font-mono); font-size: 0.76rem; }
+  .decorg-note { margin: 8px 0; font-size: 0.74rem; line-height: 1.6; color: var(--steel); }
+  .decorg-pyramid { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .decorg-row { display: grid; grid-template-columns: 9em 1fr 3em; gap: 8px; align-items: center; font-size: 0.78rem; }
+  .decorg-row .decorg-lbl { color: var(--steel-deep); font-family: var(--font-mono); font-size: 0.7rem; }
+  .decorg-row .decorg-bar { height: 8px; border-radius: 4px; background: var(--panel-deep); overflow: hidden; }
+  .decorg-row .decorg-bar span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  .decorg-row .decorg-n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); font-weight: 700; }
+  .decorg-total { font-size: 0.8rem; color: var(--ink); margin-top: 2px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .decorg-total b { color: var(--accent-deep); font-size: 1.05em; }
+  .decorg-facility { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 6px; margin-top: 10px; font-family: var(--font-mono); font-size: 0.72rem; }
+  .decorg-facility div { border: 1px solid var(--line); border-radius: 5px; padding: 6px 9px; background: var(--panel-deep); color: var(--steel-deep); }
   .decsens { margin-top: 2px; }
   .decsens > summary { cursor: pointer; font-size: 0.8rem; font-family: var(--font-mono); color: var(--accent-deep); margin-bottom: 8px; }
   .collapse-sec { border: 1px solid var(--line); border-radius: 8px; padding: 0 14px; }
@@ -1366,6 +1378,12 @@
             <summary>数字の根拠（前提）を表示</summary>
             <div class="decassume-body" id="decAssume"></div>
           </details>
+          <details class="decorg">
+            <summary>組織体制・必要人員の内訳を表示</summary>
+            <p class="decorg-note">生産量が決まれば必要な機械台数が決まり、機械を動かす作業員数が決まり、作業員を束ねるチームリーダー、チームリーダーを束ねるマネージャー、それを統括する工場長まで、必要人数は連鎖的に決まります。</p>
+            <div class="decorg-pyramid" id="decOrgPyramid"></div>
+            <div class="decorg-facility" id="decOrgFacility"></div>
+          </details>
           <details class="decsens">
             <summary>感度分析（前提を動かすと投資回収が変わる）</summary>
             <div class="sensrow"><label>製品単価</label><input type="range" id="sensPrice" min="-30" max="30" value="0" step="5"><span class="sensv" id="sensPriceV">±0%</span></div>
@@ -1417,7 +1435,8 @@
     { key: "electronic-assembly",label: "電子部品実装", sub: "SMT" },
     { key: "food-aseptic",       label: "食品無菌充填", sub: "aseptic" },
     { key: "sheet-metal",        label: "板金加工",     sub: "sheet metal" },
-    { key: "injection-molding",  label: "樹脂成形",     sub: "molding" }
+    { key: "injection-molding",  label: "樹脂成形",     sub: "molding" },
+    { key: "wire-harness",       label: "ワイヤーハーネス", sub: "cell production" }
   ];
 
   var TEMPLATES = [
@@ -1444,7 +1463,11 @@
     { id:"FT-079", name:"樹脂射出成形 中大量産セル", productType:"injection-molding", volumeBand:"mid", toleranceClass:"precision",
       processFlow:["材料乾燥","射出成形","取出し","ゲートカット","外観検査","組立","梱包"],
       cleanZones:[], keyEquipment:["電動射出成形機","金型温調機","取出しロボット","画像検査装置"],
-      capexOku:28, buildMonths:9, unitCostIndex:86, rampUpMonths:3, networkFactories:57, note:"金型交換を自動化" }
+      capexOku:28, buildMonths:9, unitCostIndex:86, rampUpMonths:3, networkFactories:57, note:"金型交換を自動化" },
+    { id:"FT-093", name:"自動車用ワイヤーハーネス セル生産ライン", productType:"wire-harness", volumeBand:"mid", toleranceClass:"general",
+      processFlow:["電線受入","尺取り・切断","端子圧着","防水栓・シール圧入","サブハーネス組立","結束・テープ巻き","回路組付け","導通・耐圧検査","外観検査","梱包"],
+      cleanZones:[], keyEquipment:["自動切断圧着機","超音波溶着機","導通検査機","結束テープマシン"],
+      capexOku:9, buildMonths:6, unitCostIndex:82, rampUpMonths:2, networkFactories:71, note:"多能工によるセル生産の典型例（一個流し）" }
   ];
 
   var ORDER = { low:0, mid:1, high:2 };
@@ -2612,7 +2635,8 @@
     "electronic-assembly": { units: 200, price: 600 },
     "food-aseptic":        { units: 900, price: 120 },
     "sheet-metal":         { units: 30,  price: 1200 },
-    "injection-molding":   { units: 400, price: 60 }
+    "injection-molding":   { units: 400, price: 60 },
+    "wire-harness":        { units: 250, price: 45 }
   };
   var VOL_MULT = { low: 0.4, mid: 1, high: 2.2 };
   var GRID_CO2 = { domestic: 1.0, sea: 1.15, india: 1.3, na: 0.9 };
@@ -3153,6 +3177,36 @@
   function prodMethodLabel(m) {
     return { cell: "セル生産方式", line: "ライン生産方式（トヨタ方式）", functional: "機能別配置" }[m] || "セル生産方式";
   }
+
+  // ==== 組織ピラミッド（生産量→機械→人→リーダー→マネージャー→責任者 の連鎖から必要人員を導出） ====
+  // 建屋(ハコ)と中身(人・機械)は別々に決まるが、"何人必要か"という共通基準で両者をつなぐ
+  function computeStaffingPyramid(operators, prodMethod) {
+    operators = Math.max(1, Math.round(operators));
+    var teamLeaderSpan = prodMethod === "cell" ? 6 : 9;   // セルは小集団、ラインは1人が広く監督できる
+    var managerSpan = 5;                                    // マネージャー1人あたりチームリーダー5人
+    var teamLeaders = Math.max(1, Math.ceil(operators / teamLeaderSpan));
+    var managers = Math.max(1, Math.ceil(teamLeaders / managerSpan));
+    var director = 1;                                       // 工場長（全マネージャーを統括）
+    var maintenance = Math.max(1, Math.round(operators * 0.06));   // 保全
+    var quality = Math.max(1, Math.round(operators * 0.05));       // 品質保証
+    var logistics = Math.max(1, Math.round(operators * 0.08));     // 構内物流・フォークリフト
+    var admin = Math.max(1, Math.round((managers + director) * 0.8)); // 事務・総務
+    var total = operators + teamLeaders + managers + director + maintenance + quality + logistics + admin;
+    return {
+      operators: operators, teamLeaders: teamLeaders, managers: managers, director: director,
+      maintenance: maintenance, quality: quality, logistics: logistics, admin: admin, total: total
+    };
+  }
+  // 総従業員数から付帯施設の必要面積(m²)を導出：食堂・ロッカー・事務所・会議室
+  function computeFacilityArea(pyramid) {
+    var diningSeatFraction = 0.6;                    // シフト重複を考慮し同時着席は6割
+    var canteen = Math.round(pyramid.total * diningSeatFraction * 1.4);      // 1席あたり1.4m²
+    var lockerRoom = Math.round(pyramid.total * 0.9);                        // ロッカー・更衣
+    var officeMgmt = Math.round((pyramid.managers + pyramid.director + pyramid.admin) * 5.5); // 個人机+通路
+    var meetingRoom = Math.round(20 + pyramid.managers * 3.2);               // 会議室
+    return { canteen: canteen, lockerRoom: lockerRoom, officeMgmt: officeMgmt, meetingRoom: meetingRoom,
+      total: canteen + lockerRoom + officeMgmt + meetingRoom };
+  }
   function renderDecision(t) {
     if (!t || !document.getElementById("decTable")) return;
     var a = IMPACT_ASSUM[t.productType] || IMPACT_ASSUM["precision-machined"];
@@ -3231,6 +3285,37 @@
       + '<div>稼働係数(人員): ×' + shiftF + '</div>'
       + '<div>目標月産: ' + nf(target) + ' 個</div>'
       + '<div>予算上限: ¥' + budgetCap + '億</div>';
+
+    // 組織ピラミッド：推奨案の作業員数を起点に、リーダー→マネージャー→工場長まで連鎖的に導出
+    var pyramid = computeStaffingPyramid(rec.ops, state.prodMethod);
+    var facility = computeFacilityArea(pyramid);
+    window.CaddiOrgPyramid = pyramid; // 3D側(worker密度)・2D図面(食堂/事務所サイズ)から参照
+    window.CaddiFacilityArea = facility;
+    var pyRows = [
+      ["作業員（機械オペレーター）", pyramid.operators],
+      ["チームリーダー", pyramid.teamLeaders],
+      ["マネージャー", pyramid.managers],
+      ["工場長", pyramid.director],
+      ["保全", pyramid.maintenance],
+      ["品質保証", pyramid.quality],
+      ["構内物流", pyramid.logistics],
+      ["事務・総務", pyramid.admin]
+    ];
+    var pyMax = pyramid.operators;
+    var pyHtml = "";
+    for (var pr = 0; pr < pyRows.length; pr++) {
+      var pct = Math.max(4, Math.round(pyRows[pr][1] / pyMax * 100));
+      pyHtml += '<div class="decorg-row"><span class="decorg-lbl">' + pyRows[pr][0] + '</span>'
+        + '<span class="decorg-bar"><span style="width:' + pct + '%"></span></span>'
+        + '<span class="decorg-n">' + pyRows[pr][1] + '名</span></div>';
+    }
+    document.getElementById("decOrgPyramid").innerHTML = pyHtml
+      + '<div class="decorg-total">総従業員数 <b>' + pyramid.total + '名</b>（作業員' + pyramid.operators + '名を機械稼働数から算出し、管理階層・支援部門を積み上げ）</div>';
+    document.getElementById("decOrgFacility").innerHTML =
+      '<div>食堂: 約' + facility.canteen + ' m²（同時着席' + Math.round(pyramid.total * 0.6) + '名想定）</div>'
+      + '<div>ロッカー・更衣: 約' + facility.lockerRoom + ' m²</div>'
+      + '<div>事務所・管理部門: 約' + facility.officeMgmt + ' m²</div>'
+      + '<div>会議室: 約' + facility.meetingRoom + ' m²</div>';
 
     applySensitivity();
   }
