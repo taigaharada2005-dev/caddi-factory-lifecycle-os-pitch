@@ -3846,8 +3846,10 @@ if (mount) {
 
   mount.style.position = mount.style.position || "relative";
   mount.style.overflow = "hidden";
-  if (!mount.style.height && mount.clientHeight < 120) mount.style.height = "360px";
-  mount.style.minHeight = mount.style.minHeight || "340px";
+  // 非表示タブ内では clientHeight が一時的に0を返すため、この安全策の既定値もCSSのclamp下限に合わせておく
+  // (でないと非表示状態で誤発動した際にCSSのサイズより小さい値で上書きしてしまう)
+  if (!mount.style.height && mount.clientHeight < 120) mount.style.height = "560px";
+  mount.style.minHeight = mount.style.minHeight || "460px";
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   if ("outputColorSpace" in renderer && THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
