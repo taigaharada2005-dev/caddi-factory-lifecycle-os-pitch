@@ -4090,7 +4090,8 @@ if (mount) {
       '<div><span style="display:inline-block;width:8px;height:8px;background:#f2c532;border-radius:50%;margin-right:6px;"></span>作業員 <span style="display:inline-block;width:8px;height:8px;background:#2f9e57;border-radius:50%;margin:0 6px 0 8px;"></span>リーダー</div>' +
       '<div><span style="display:inline-block;width:8px;height:8px;background:#2f78b7;border-radius:50%;margin-right:6px;"></span>マネージャー <span style="display:inline-block;width:8px;height:8px;background:#f2f5f5;border:1px solid #999;border-radius:50%;margin:0 6px 0 8px;"></span>工場長</div>' +
       '<div><span style="display:inline-block;width:8px;height:8px;background:#d23b3b;border-radius:50%;margin-right:6px;"></span>品質保証 <span style="display:inline-block;width:8px;height:8px;background:#e8792a;border-radius:50%;margin:0 6px 0 8px;"></span>保全</div>' +
-      '<div><span style="display:inline-block;width:8px;height:8px;background:#8b96a0;border-radius:50%;margin-right:6px;"></span>構内物流</div>';
+      '<div><span style="display:inline-block;width:8px;height:8px;background:#8b96a0;border-radius:50%;margin-right:6px;"></span>構内物流</div>' +
+      '<div style="margin-top:4px;">×N+ = 表示は性能上限3台。実際の必要台数はさらに多いことを示す</div>';
     overlay.appendChild(legendPanel);
 
     buttons.generate = createPanelButton("Generate", function () {
@@ -4311,7 +4312,9 @@ if (mount) {
     var hallW = Math.max(hallWBase, 20 + n * (prodMethod === "line" ? 1.5 : 1.7) + variant * 1.1) + staffHallAdd;
     // 目標生産量→必要機械台数を"先に"決め、その実寸(スケールダウンしない)を収める分だけ建屋奥行きを広げる
     // (動線に合わせて機械を詰め込むのではなく、機械の必要数に合わせて建屋を広げる)
-    var machineCount = machinesPerStation(prodMethod);
+    // visible=描画上限3台(性能配慮)、real=目標生産量から工学的に算出した本当の必要台数(ラベルで開示し隠さない)
+    var machineCountInfo = machinesPerStation(prodMethod);
+    var machineCount = machineCountInfo.visible;
     // 建屋奥行きも、生産エリア+QC室+事務所/食堂の実際の必要分まで縮小(旧24.8〜26.4mは根拠なく深すぎた)
     var hallDBase = prodMethod === "functional" ? 19 : (prodMethod === "line" ? 17.5 : 18.2);
     var machineDepthEach = 1.9; // 機械1台分の奥行き+離隔(実寸)
@@ -4336,6 +4339,7 @@ if (mount) {
       productTransportMode: resolveTransportMode(template),
       transportMode: prodMethod === "line" ? "continuous" : "discrete",
       machineCount: machineCount,
+      machineCountReal: machineCountInfo.real,
       cleanZones: cleanZones || [],
       hallW: hallW,
       hallD: hallD,
@@ -5116,7 +5120,8 @@ if (mount) {
     var machinesNeeded = Math.ceil(targetPerHour / Math.max(1, machineCapacityPerHour));
     // 生産方式による効率係数(ラインはタクト同期で若干効率化、機能別は段取り替えで非効率)
     var methodFactor = prodMethod === "line" ? 0.85 : (prodMethod === "functional" ? 1.15 : 1.0);
-    return Math.max(1, Math.min(3, Math.round(machinesNeeded * methodFactor)));
+    var realMachines = Math.max(1, Math.round(machinesNeeded * methodFactor));
+    return { visible: Math.min(3, realMachines), real: realMachines };
   }
 
   function createStations(layout, flow, template, mats) {
@@ -5125,6 +5130,8 @@ if (mount) {
     for (var i = 0; i < cleanZones.length; i++) cleanMap[String(cleanZones[i])] = true;
     var stationNameCounts = Object.create(null);
     var machineCount = layout.machineCount || 1;
+    var machineCountReal = layout.machineCountReal || machineCount;
+    var machineCountIsCapped = machineCountReal > machineCount; // 描画は性能上3台までだが、本当はもっと必要な場合は隠さず「+」で示す
     for (i = 0; i < flow.length; i++) {
       var name = flow[i];
       var pos = layout.processPositions[i];
@@ -5141,7 +5148,7 @@ if (mount) {
       var thisMachineCount = isDup ? machineCount : 1;
       if (isDup && thisMachineCount > 1) createParallelMachines(name, pos, mats, kind, stationKey, thisMachineCount, layout);
       if (kind !== "receiving" && kind !== "shipping") createWipBuffer(pos, i, mats, layout, stationKey + ":wip");
-      var labelText = thisMachineCount > 1 ? name + " ×" + thisMachineCount : name;
+      var labelText = thisMachineCount > 1 ? name + " ×" + thisMachineCount + (machineCountIsCapped ? "+" : "") : name;
       addHtmlLabel(labelText, v3(0, clean ? 2.65 : 2.18, 0), "process", stationGroup);
     }
     createWorkers(layout, flow, mats, machineCount);
