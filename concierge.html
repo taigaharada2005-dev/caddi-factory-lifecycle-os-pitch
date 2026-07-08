@@ -242,7 +242,7 @@
 
   .fhead .hint3d { font-family: var(--font-mono); font-size: 0.72rem; color: var(--steel); }
   .stage3d {
-    width: 100%; height: 340px; position: relative;
+    width: 100%; height: clamp(460px, 68vh, 760px); position: relative;
     background: linear-gradient(180deg, var(--panel-deep), var(--panel));
     cursor: grab; touch-action: none;
   }
@@ -5377,15 +5377,20 @@ if (mount) {
   }
 
   // 役職名 -> ヘルメット用マテリアルキーの対応
-  var WORKER_ROLE_HELMET = {
-    operator: "helmetOperator",
-    teamLeader: "helmetTeamLeader",
-    manager: "helmetManager",
-    director: "helmetDirector",
-    quality: "helmetQuality",
-    maintenance: "helmetMaintenance",
-    logistics: "helmetLogistics"
-  };
+  // (関数宣言でホイスト: モジュール内の記述位置に関わらず、初回自動描画時点でも安全に参照できる。
+  //  varオブジェクトリテラルだと初期化行に実行が到達するまでundefinedになる罠があったため回避)
+  function workerRoleHelmetKey(role) {
+    var map = {
+      operator: "helmetOperator",
+      teamLeader: "helmetTeamLeader",
+      manager: "helmetManager",
+      director: "helmetDirector",
+      quality: "helmetQuality",
+      maintenance: "helmetMaintenance",
+      logistics: "helmetLogistics"
+    };
+    return map[role] || "helmetOperator";
+  }
 
   function createWorker(pos, mats, ry, role) {
     var group = new THREE.Group();
@@ -5399,7 +5404,7 @@ if (mount) {
     addBox(group, 0.08, 0.43, 0.08, mats.workerPants, -0.28, 0.72, 0);
     addBox(group, 0.08, 0.43, 0.08, mats.workerPants, 0.28, 0.72, 0);
     addSphere(group, 0.16, mats.workerHead, 0, 1.11, 0);
-    var helmetKey = WORKER_ROLE_HELMET[role] || "helmetOperator";
+    var helmetKey = workerRoleHelmetKey(role);
     var helmetMat = mats[helmetKey] || mats.safetyYellow;
     addCylinder(group, 0.18, 0.16, 0.11, 18, helmetMat, 0, 1.25, 0);
     equipmentGroup.add(group);
