@@ -4260,7 +4260,9 @@ if (mount) {
     var productType = getTemplateProductType(template);
     var variant = optimizedLayout ? 0 : (layoutVariant % 3);
     var hallWBase = prodMethod === "functional" ? 45 : (prodMethod === "line" ? 43 : 44);
-    var hallW = Math.max(hallWBase, 31 + n * (prodMethod === "line" ? 1.65 : 1.85) + variant * 1.1);
+    var staffPyramidForHall = safeOrgPyramid();
+    var staffHallAdd = staffPyramidForHall && staffPyramidForHall.total > 40 ? Math.min(6, (staffPyramidForHall.total - 40) * 0.08) : 0;
+    var hallW = Math.max(hallWBase, 31 + n * (prodMethod === "line" ? 1.65 : 1.85) + variant * 1.1) + staffHallAdd;
     var hallD = prodMethod === "functional" ? 26.4 : (prodMethod === "line" ? 24.8 : 25.6);
     var halfD = hallD / 2;
     var leftX = -hallW / 2;
@@ -5274,18 +5276,43 @@ if (mount) {
     return v3(pos.x + (index % 2 ? 1.05 : -1.05), 0, pos.z + (pos.z > layout.mainAisleZ ? -1.18 : 1.18));
   }
 
+  function safeOrgPyramid() {
+    try { return (typeof window !== "undefined" && window.CaddiOrgPyramid) ? window.CaddiOrgPyramid : null; } catch (e) { return null; }
+  }
+
   function createWorkers(layout, flow, mats) {
     var p = layout.processPositions;
+    var pyramid = safeOrgPyramid();
+    // 実際の作業員数(組織ピラミッド)に連動。ただし描画負荷のため表示上限を設ける
+    var targetVisible = pyramid ? Math.max(6, Math.min(24, Math.round(pyramid.operators))) : 8;
+    var placed = 0;
+    function place(pos, ry) { if (placed >= targetVisible) return; createWorker(pos, mats, ry); placed++; }
     if (layout.prodMethod === "cell") {
-      for (var i = 0; i < layout.cellInfos.length; i++) createWorker(v3(layout.cellInfos[i].cx, 0, layout.cellInfos[i].z0 + 1.85), mats, Math.PI);
+      var perCell = Math.max(1, Math.round(targetVisible / Math.max(1, layout.cellInfos.length)));
+      for (var i = 0; i < layout.cellInfos.length; i++) {
+        for (var k = 0; k < perCell; k++) {
+          var offZ = layout.cellInfos[i].z0 + 1.85 + (k % 2 === 0 ? 0 : -0.9);
+          var offX = layout.cellInfos[i].cx + (k >= 2 ? (k - 2) * 0.9 - 0.45 : 0);
+          place(v3(offX, 0, offZ), Math.PI);
+        }
+      }
     } else if (layout.prodMethod === "functional") {
-      for (i = 0; i < layout.functionalBlocks.length; i++) createWorker(v3(layout.functionalBlocks[i].cx - 0.7, 0, layout.functionalBlocks[i].cz - 1.25), mats, 0.25);
+      var perBlock = Math.max(1, Math.round(targetVisible / Math.max(1, layout.functionalBlocks.length)));
+      for (i = 0; i < layout.functionalBlocks.length; i++) {
+        for (k = 0; k < perBlock; k++) place(v3(layout.functionalBlocks[i].cx - 0.7 + k * 0.85, 0, layout.functionalBlocks[i].cz - 1.25), 0.25);
+      }
     } else {
-      for (i = 0; i < flow.length; i += 2) if (!isReceivingName(flow[i]) && !isShippingName(flow[i])) createWorker(v3(p[i].x + 0.38, 0, clamp(p[i].z - 1.25, -layout.halfD + 1.0, layout.halfD - 1.0)), mats, 0.1);
+      var stationCount = 0;
+      for (i = 0; i < flow.length; i++) if (!isReceivingName(flow[i]) && !isShippingName(flow[i])) stationCount++;
+      var perStation = Math.max(1, Math.round(targetVisible / Math.max(1, stationCount)));
+      for (i = 0; i < flow.length; i++) {
+        if (isReceivingName(flow[i]) || isShippingName(flow[i])) continue;
+        for (k = 0; k < perStation; k++) place(v3(p[i].x + 0.38 + k * 0.5, 0, clamp(p[i].z - 1.25, -layout.halfD + 1.0, layout.halfD - 1.0)), 0.1);
+      }
     }
-    createWorker(v3(layout.leftX + 3.7, 0, layout.mainAisleZ + 1.55), mats, -0.5);
-    createWorker(v3(layout.qcX + 1.55, 0, layout.qcZ - 1.05), mats, Math.PI);
-    createWorker(v3(layout.packX + 0.9, 0, layout.packZ - 1.55), mats, -0.2);
+    place(v3(layout.leftX + 3.7, 0, layout.mainAisleZ + 1.55), -0.5);
+    place(v3(layout.qcX + 1.55, 0, layout.qcZ - 1.05), Math.PI);
+    place(v3(layout.packX + 0.9, 0, layout.packZ - 1.55), -0.2);
   }
 
   function createWorker(pos, mats, ry) {
@@ -5306,6 +5333,7 @@ if (mount) {
 
   function createSupportAreas(layout, flow, mats) {
     createOffice(layout, mats);
+    createCanteen(layout, mats);
     createControlCabinets(layout, mats);
     createMethodFixtures(layout, flow, mats);
   }
@@ -5324,13 +5352,49 @@ if (mount) {
     addBox(group, 1.55, 0.86, 0.035, mats.windowGlass, -1.3, 1.15, d / 2 + 0.025);
     addBox(group, 1.55, 0.86, 0.035, mats.windowGlass, 1.25, 1.15, d / 2 + 0.025);
     addBox(group, 0.68, 1.22, 0.05, mats.dockDoor, 0, 0.95, d / 2 + 0.03);
-    for (var i = 0; i < 3; i++) {
-      addBox(group, 0.72, 0.08, 0.46, mats.palletWood, -1.5 + i * 1.2, 0.52, -0.15);
-      addBox(group, 0.24, 0.34, 0.24, mats.machineDark, -1.5 + i * 1.2, 0.22, 0.52);
-      addBox(group, 0.36, 0.28, 0.03, mats.windowGlass, -1.5 + i * 1.2, 0.76, -0.42);
+    var pyramid = safeOrgPyramid();
+    var deskCount = pyramid ? Math.max(3, Math.min(8, pyramid.managers + pyramid.director + pyramid.admin)) : 3;
+    var perRow = Math.min(deskCount, 4), rows = Math.ceil(deskCount / perRow);
+    var deskSpanX = Math.min(w - 0.6, perRow * 1.15);
+    for (var i = 0; i < deskCount; i++) {
+      var row = Math.floor(i / perRow), col = i % perRow, colsInRow = Math.min(perRow, deskCount - row * perRow);
+      var dx = -deskSpanX / 2 + (col + 0.5) * (deskSpanX / Math.max(1, colsInRow));
+      var dz = -0.15 - row * 0.62;
+      addBox(group, 0.72, 0.08, 0.46, mats.palletWood, dx, 0.52, dz);
+      addBox(group, 0.24, 0.34, 0.24, mats.machineDark, dx, 0.22, dz + 0.14);
+      addBox(group, 0.36, 0.28, 0.03, mats.windowGlass, dx, 0.76, dz - 0.27);
     }
     equipmentGroup.add(group);
-    addHtmlLabel("Office / Control", v3(layout.leftX + 13.5, 2.6, layout.halfD - 0.9), "zone");
+    addHtmlLabel("Office / Control (" + deskCount + " desks)", v3(layout.leftX + 13.5, 2.6, layout.halfD - 0.9), "zone");
+  }
+
+  function createCanteen(layout, mats) {
+    var pyramid = safeOrgPyramid();
+    var tableCount = pyramid ? Math.max(2, Math.min(10, Math.ceil(pyramid.total * 0.6 / 4))) : 4;
+    var group = new THREE.Group();
+    var cx = layout.leftX + 20.5, cz = layout.halfD - 1.35;
+    group.position.set(cx, 0, cz);
+    var w = Math.min(7.5, 2.2 + tableCount * 0.85), d = 2.6, h = 2.05;
+    addBox(group, w, 0.08, d, mats.officeWall, 0, 0.08, 0);
+    addBox(group, w, h, 0.08, mats.officeWall, 0, h / 2, -d / 2);
+    addBox(group, 0.08, h, d, mats.officeWall, -w / 2, h / 2, 0);
+    addBox(group, 0.08, h, d, mats.officeWall, w / 2, h / 2, 0);
+    addBox(group, 2.2, 0.9, 0.035, mats.windowGlass, 0, 1.1, -d / 2 + 0.02);
+    var perRow = Math.min(tableCount, 5), rows = Math.ceil(tableCount / perRow);
+    for (var i = 0; i < tableCount; i++) {
+      var row = Math.floor(i / perRow), col = i % perRow, colsInRow = Math.min(perRow, tableCount - row * perRow);
+      var tx = -w / 2 + 0.7 + col * ((w - 1.4) / Math.max(1, colsInRow - 1 || 1));
+      if (colsInRow === 1) tx = 0;
+      var tz = -0.3 + row * 0.95;
+      addCylinder(group, 0.34, 0.34, 0.04, 16, mats.palletWood, tx, 0.42, tz);
+      addCylinder(group, 0.035, 0.035, 0.42, 8, mats.machineDark, tx, 0.2, tz);
+      var chairOffsets = [[0.42, 0], [-0.42, 0], [0, 0.42], [0, -0.42]];
+      for (var c = 0; c < chairOffsets.length; c++) {
+        addBox(group, 0.22, 0.05, 0.22, mats.workerVest, tx + chairOffsets[c][0], 0.24, tz + chairOffsets[c][1]);
+      }
+    }
+    equipmentGroup.add(group);
+    addHtmlLabel("Canteen (" + tableCount + " tables)", v3(cx, 2.5, cz), "zone");
   }
 
   function createControlCabinets(layout, mats) {
