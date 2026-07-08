@@ -4195,10 +4195,40 @@ if (mount) {
     return btn;
   }
 
+  // 空のグラデーション背景(実行時生成のCanvasTexture。外部画像ではないので制約に反しない)。
+  // 単色の背景だと、敷地の地面がどこまで拡張しても水平線が不自然に途切れて見える。
+  var skyTextureCache = {};
+  function createSkyGradientTexture(dark) {
+    var key = dark ? "dark" : "light";
+    if (skyTextureCache[key]) return skyTextureCache[key];
+    var canvas = document.createElement("canvas");
+    canvas.width = 8;
+    canvas.height = 256;
+    var ctx = canvas.getContext("2d");
+    var grad = ctx.createLinearGradient(0, 0, 0, 256);
+    if (dark) {
+      grad.addColorStop(0, "#0a0f16");
+      grad.addColorStop(0.55, "#141d29");
+      grad.addColorStop(1, "#232f3a");
+    } else {
+      grad.addColorStop(0, "#bcd4ea");
+      grad.addColorStop(0.55, "#dce8f2");
+      grad.addColorStop(1, "#f3f6f9");
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 8, 256);
+    var tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    skyTextureCache[key] = tex;
+    return tex;
+  }
+
   function applyTheme() {
     var dark = isDarkTheme();
-    scene.background = new THREE.Color(dark ? 0x111821 : 0xf3f6f9);
-    renderer.setClearColor(scene.background, 1);
+    scene.background = createSkyGradientTexture(dark);
+    renderer.setClearColor(dark ? 0x111821 : 0xf3f6f9, 1);
+    // 敷地の地面が水平線でスパッと途切れず、空へ馴染むよう薄いフォグを重ねる
+    scene.fog = new THREE.Fog(dark ? 0x1c2530 : 0xdce8f2, 45, 130);
     mount.style.background = dark ? "#111821" : "#f3f6f9";
     if (panel) {
       panel.style.background = dark ? "rgba(16, 24, 34, 0.9)" : "rgba(255, 255, 255, 0.92)";
